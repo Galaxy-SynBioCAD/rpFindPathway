@@ -3,6 +3,285 @@ import numpy as np
 import tempfile
 
 
+def compareRPpathways_rewrite(sim_rpsbml, measured_rpsbml):
+    ############## compare using the species ###################
+    print('Species')
+    meas_species_match = {}
+    for measured_species in measured_rpsbml.model.getListOfSpecies():
+        meas_species_match[measured_species.getId()] = []
+        for sim_species in sim_rpsbml.model.getListOfSpecies():
+            match_score = 0.0
+            measured_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(measured_species.getAnnotation())
+            sim_rpsbml_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(sim_species.getAnnotation())
+            #find according to xref
+            if sim_rpsbml.compareMIRIAMAnnotations(measured_species.getAnnotation(), sim_species.getAnnotation()):
+                match_score += 0.3
+            #find according to the SMILES
+            if measured_brsynth_annot['smiles'] and sim_rpsbml_brsynth_annot['smiles']:
+                if measured_brsynth_annot['smiles']==sim_rpsbml_brsynth_annot['smiles']:
+                    match_score += 0.2
+            #find accorsing to the inchi
+            if measured_brsynth_annot['inchi'] and sim_rpsbml_brsynth_annot['inchi']:
+                if measured_brsynth_annot['inchi']==sim_rpsbml_brsynth_annot['inchi']:
+                    match_score += 0.2
+            #find according to the inchikey -- allow partial matches
+            if measured_brsynth_annot['inchikey'] and sim_rpsbml_brsynth_annot['inchikey']:
+                measured_inchikey_split = measured_brsynth_annot['inchikey'].split('-')
+                sim_rpsbml_inchikey_split = sim_rpsbml_brsynth_annot['inchikey'].split('-')
+                if measured_inchikey_split[0]==sim_rpsbml_inchikey_split[0]:
+                    match_score += 0.1
+                    if measured_inchikey_split[1]==sim_rpsbml_inchikey_split[1]:
+                        match_score += 0.1
+                        if measured_inchikey_split[2]==sim_rpsbml_inchikey_split[2]:
+                            match_score += 0.1
+            if match_score>0.0:
+                #only one match
+                try:
+                    if meas_species_match[measured_species.getId()][1]<match_score:
+                        meas_species_match[measured_species.getId()] = [sim_species.getId(), match_score]
+                except IndexError:
+                    meas_species_match[measured_species.getId()] = [sim_species.getId(), match_score]
+    print(meas_species_match)
+    print('#############################')
+    print('Simulated')
+    #TODO: need to deal if there are more than one match
+    ############## compare the reactions #######################
+    sim_reactions = {}
+    for sim_reaction_id in sim_rpsbml.readRPpathwayIDs():
+        sim_reaction = sim_rpsbml.model.getReaction(sim_reaction_id)
+        sim_reactions[sim_reaction_id] = {'reactants': [], 'products': []}
+        for sim_reactant in sim_reaction.getListOfReactants():
+            sim_reactions[sim_reaction_id]['reactants'].append(sim_reactant.species)
+        for sim_product in sim_reaction.getListOfProducts():
+            sim_reactions[sim_reaction_id]['products'].append(sim_product.species)
+    print(sim_reactions)
+    print('#############################')
+    print('Measured')
+    measured_reactions_match = {}
+    sum_score = []
+    for measured_reaction_id in measured_rpsbml.readRPpathwayIDs(): 
+        measured_reaction = measured_rpsbml.model.getReaction(measured_reaction_id)
+        ################ construct the dict transforming the species #######
+        measured_reactions_match[measured_reaction.getId()] = {
+                'species_match': {
+                    'reactants': [],
+                    'reactants_score': [],
+                    'products': [], 
+                    'products_score': [],
+                    'score': 0.0,
+                    'sim_reaction': None},
+                'ec_match': {
+                    'measured': None, 
+                    'sim': None, 
+                    'score': 0.0},
+                'confidence_score': 0.0
+                }
+        for reactant in measured_reaction.getListOfReactants():
+            try:
+                measured_reactions_match[measured_reaction.getId()]['species_match']['reactants'].append(
+                        meas_species_match[reactant.species][0])
+                measured_reactions_match[measured_reaction.getId()]['species_match']['reactants_score'].append(
+                        meas_species_match[reactant.species][1])
+                sum_score.append(meas_species_match[reactant.species][1])
+            except (KeyError, IndexError) as e:
+                measured_reactions_match[measured_reaction.getId()]['species_match']['reactants'].append(reactant.species)
+                measured_reactions_match[measured_reaction.getId()]['species_match']['reactants_score'].append(0.0)
+                sum_score.append(0.0)
+        for product in measured_reaction.getListOfProducts():
+            try:
+                measured_reactions_match[measured_reaction.getId()]['species_match']['products'].append(
+                        meas_species_match[product.species][0])
+                measured_reactions_match[measured_reaction.getId()]['species_match']['products_score'].append(
+                        meas_species_match[product.species][1])
+                sum_score.append(meas_species_match[product.species][1])
+            except (KeyError, IndexError) as e:
+                measured_reactions_match[measured_reaction.getId()]['species_match']['products'].append(product.species)
+                measured_reactions_match[measured_reaction.getId()]['species_match']['products_score'].append(0.0)
+                sum_score.append(0.0)
+    for measured_reaction_id in measured_reactions_match:
+        for sim_reaction_id in sim_reactions:
+            if set(measured_reactions_match[measured_reaction_id]['species_match']['reactants']).issubset(sim_reactions[sim_reaction_id]['species_match']['reactants']) and set(measured_reactions_match[measured_reaction_id]['species_match']['products']).issubset(sim_reactions[sim_reaction_id]['species_match']['products']):
+                measured_reactions_match[measured_reaction_id]['species_match']['sim_reaction'] = sim_reaction_id
+
+                break
+    measured_reactions_match[measured_reaction.getId()]['species_match']['score'] = np.mean(sum_score)
+    print(measured_reactions_match)
+    print('#############################')
+    print('EC')
+    for measured_reaction_id in measured_rpsbml.readRPpathwayIDs():
+        measured_reaction = measured_rpsbml.model.getReaction(measured_reaction_id)
+        measured_reaction_miriam = rpsbml.readMIRIAMAnnotation(measured_reaction.getAnnotation())
+        try:
+            measured_reactions_match[measured_reaction_id]['ec_match']['measured'] = measured_reaction_miriam['ec-code']
+            for sim_reaction_id in sim_rpsbml.readRPpathwayIDs():
+                sim_reaction = sim_rpsbml.model.getReaction(sim_reaction_id)
+                sim_reaction_miriam = rpsbml.readMIRIAMAnnotation(sim_reaction.getAnnotation())
+                try:
+                    measured_reactions_match[measured_reaction_id]['ec_match']['sim'] = sim_reaction_miriam['ec-code']
+                ##### try to compare them ####
+                if set(measured_reaction_miriam['ec-code']).issubset(set(sim_reaction_miriam['ec-code'])):
+                    #recover only the ones that are in the measured
+                    found_meas_rp[rp_step_id]['rp_step_id'] = meas_step_id
+                    found_meas_rp[rp_step_id]['found'] = True
+                    found_meas_rp['ec_score'] += 1.0
+                elif [i for i, j in zip(source_dict['ec-code'], target_dict['ec-code']) if i.split('.')[:-1]==j.split('.')[:-1]]:
+                    found_meas_rp[rp_step_id]['rp_step_id'] = meas_step_id
+                    found_meas_rp[rp_step_id]['found'] = True
+                    found_meas_rp['ec_score'] += 0.5
+                except KeyError:
+                    measured_reactions_match[measured_reaction_id]['ec_match']['sim'] = None
+
+        except KeyError:
+            measured_reactions_match[measured_reaction_id]['ec_match']['measured'] = None
+            
+
+
+
+        source_dict = readMIRIAMAnnotation(rp_rp[rp_step_id]['annotation'])
+        target_dict = readMIRIAMAnnotation(meas_rp[meas_step_id]['annotation'])
+        try:
+            found_meas_rp[rp_step_id]['ec_source'] = source_dict['ec-code']
+        except KeyError:
+            found_meas_rp[rp_step_id]['ec_source'] = None
+        try:
+            found_meas_rp[rp_step_id]['ec_target'] = target_dict['ec-code']
+        except KeyError:
+            found_meas_rp[rp_step_id]['ec_target'] = None
+        #test perfect matches (ec or others)
+        '''# could have the same uniprot ID and not the same stuff
+        if compareMIRIAMAnnotations(rp_rp[rp_step_id]['annotation'], meas_rp[meas_step_id]['annotation']): 
+            found_meas_rp[rp_step_id]['rp_step_id'] = meas_step_id
+            found_meas_rp[rp_step_id]['found'] = True
+            found_meas_rp['ec_score'] += 1.0
+        '''
+        #test to the third EC number
+        if 'ec-code' in source_dict and 'ec-code' in target_dict:
+            if len(set(source_dict['ec-code']).intersection(set(target_dict['ec-code'])))>0:
+                found_meas_rp[rp_step_id]['rp_step_id'] = meas_step_id
+                found_meas_rp[rp_step_id]['found'] = True
+                found_meas_rp['ec_score'] += 1.0
+            elif [i for i, j in zip(source_dict['ec-code'], target_dict['ec-code']) if i.split('.')[:-1]==j.split('.')[:-1]]:
+                found_meas_rp[rp_step_id]['rp_step_id'] = meas_step_id
+                found_meas_rp[rp_step_id]['found'] = True
+                found_meas_rp['ec_score'] += 0.5
+            
+
+    
+
+    '''
+    for measured_reaction_id in measured_reactions_match:
+        meas_reactants = [measured_reactions_match[measured_reaction_id]['reactants']['id']]
+        for sim_reaction_id in sim_reactions:
+            measured_reactions_match[measured_reaction_id]
+            
+
+
+        for measured_reactant in measured_reaction.getListOfReactants():
+            try:
+                measured_reactions_match[measured_reaction.getId()]['reactants'][measured_reactant.species]['species'] = list(meas_species_match[measured_reactant.species].keys())[0]
+                measured_reactions_match[measured_reaction.getId()]['reactants'][measured_reactant.species]['score'] = meas_species_match[measured_reactant.species][list(meas_species_match[measured_reactant.species].keys())[0]]
+            except (KeyError, IndexError) as e:
+                pass
+        for measured_product in measured_reaction.getListOfProducts():
+            try:
+                measured_reactions_match[measured_reaction.getId()]['products'][measured_product.species]['species'] = list(meas_species_match[measured_product.species].keys())[0]
+                measured_reactions_match[measured_reaction.getId()]['products'][measured_product.species]['score'] = meas_species_match[measured_product.species][list(meas_species_match[measured_product.species].keys())[0]]
+            except (KeyError, IndexError) as e:
+                pass
+        #calculate 
+        measured_reactions_match[measured_reaction.getId()]
+        if all([True if measured_reactions_match[measured_reaction.getId()][g]['species'] else False for g in measured_reactions_match[measured_reaction.getId()]['reactants']]) and all([True if measured_reactions_match[measured_reaction.getId()][g]['species'] else False for g in measured_reactions_match[measured_reaction.getId()]['reactants']]):
+            measured_reactions_match[measured_reaction.getId()]['sim_reaction'] = 
+    print(measured_reactions_match)
+    '''
+
+
+
+    '''
+    ############## compare the reactions
+    #1) list through all the measured species and compare with sim_rpsbml ones by:
+    #       -> 
+    measured_reactions_match = {}
+    for measured_reaction_id in measured_rpsbml.readRPpathwayIDs(): 
+        measured_reaction = measured_rpsbml.model.getReaction(measured_reaction_id)
+        print('########### '+str(measured_reaction.getId())+' ##############')
+        measured_reactions_match[measured_reaction.getId()] = {}
+        for sim_rpsbml_reaction_id in sim_rpsbml.readRPpathwayIDs():
+            sim_rpsbml_reaction = sim_rpsbml.model.getReaction(sim_rpsbml_reaction_id)
+            print('\t########## '+str(sim_rpsbml_reaction.getId())+' ###########')
+            measured_reactions_match[measured_reaction.getId()][sim_rpsbml_reaction.getId()] = {}
+            species_match = {'reactants': {'species': {}, 'num': len(measured_reaction.getListOfReactants())}, 'products': {'species': {}, 'num': len(measured_reaction.getListOfProducts())}, 'score': None}
+            #reactant
+            for measured_reactant in measured_reaction.getListOfReactants():
+                species_match['reactants']['species'][measured_reactant.species] = {}
+                for sim_rpsbml_reactant in sim_rpsbml_reaction.getListOfReactants():
+                    measured_species = measured_rpsbml.model.getSpecies(measured_reactant.species)
+                    sim_rpsbml_species = sim_rpsbml.model.getSpecies(sim_rpsbml_reactant.species)
+                    match_score = 0.0
+                    measured_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(measured_species.getAnnotation())
+                    sim_rpsbml_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(sim_rpsbml_species.getAnnotation())
+                    #find according to xref
+                    if sim_rpsbml.compareMIRIAMAnnotations(measured_species.getAnnotation(), sim_rpsbml_species.getAnnotation()):
+                        match_score += 0.2
+                    #find according to the SMILES
+                    if measured_brsynth_annot['smiles'] and sim_rpsbml_brsynth_annot['smiles']:
+                        if measured_brsynth_annot['smiles']==sim_rpsbml_brsynth_annot['smiles']:
+                            match_score += 0.2
+                    #find accorsing to the inchi
+                    if measured_brsynth_annot['inchi'] and sim_rpsbml_brsynth_annot['inchi']:
+                        if measured_brsynth_annot['inchi']==sim_rpsbml_brsynth_annot['inchi']:
+                            match_score += 0.2
+                    #find according to the inchikey -- allow partial matches
+                    if measured_brsynth_annot['inchikey'] and sim_rpsbml_brsynth_annot['inchikey']:
+                        measured_inchikey_split = measured_brsynth_annot['inchikey'].split('-')
+                        sim_rpsbml_inchikey_split = sim_rpsbml_brsynth_annot['inchikey'].split('-')
+                        if measured_inchikey_split[0]==sim_rpsbml_inchikey_split[0]:
+                            match_score += 0.2
+                            if measured_inchikey_split[1]==sim_rpsbml_inchikey_split[1]:
+                                match_score += 0.2
+                                if measured_inchikey_split[2]==sim_rpsbml_inchikey_split[2]:
+                                    match_score += 0.2
+                    if match_score>0.0:
+                        species_match['reactants']['species'][measured_reactant.species][sim_rpsbml_reactant.species] = match_score
+            #product
+            for measured_product in measured_reaction.getListOfProducts():
+                species_match['products']['species'][measured_product.species] = {}
+                for sim_rpsbml_product in sim_rpsbml_reaction.getListOfProducts():
+                    measured_species = measured_rpsbml.model.getSpecies(measured_product.species)
+                    sim_rpsbml_species = sim_rpsbml.model.getSpecies(sim_rpsbml_product.species)
+                    match_score = 0.0
+                    measured_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(measured_species.getAnnotation())
+                    sim_rpsbml_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(sim_rpsbml_species.getAnnotation())
+                    #find according to xref
+                    if sim_rpsbml.compareMIRIAMAnnotations(measured_species.getAnnotation(), sim_rpsbml_species.getAnnotation()):
+                        match_score += 0.2
+                    #find according to the SMILES
+                    if measured_brsynth_annot['smiles'] and sim_rpsbml_brsynth_annot['smiles']:
+                        if measured_brsynth_annot['smiles']==sim_rpsbml_brsynth_annot['smiles']:
+                            match_score += 0.2
+                    #find accorsing to the inchi
+                    if measured_brsynth_annot['inchi'] and sim_rpsbml_brsynth_annot['inchi']:
+                        if measured_brsynth_annot['inchi']==sim_rpsbml_brsynth_annot['inchi']:
+                            match_score += 0.2
+                    #find according to the inchikey -- allow partial matches
+                    if measured_brsynth_annot['inchikey'] and sim_rpsbml_brsynth_annot['inchikey']:
+                        measured_inchikey_split = measured_brsynth_annot['inchikey'].split('-')
+                        sim_rpsbml_inchikey_split = sim_rpsbml_brsynth_annot['inchikey'].split('-')
+                        if measured_inchikey_split[0]==sim_rpsbml_inchikey_split[0]:
+                            match_score += 0.2
+                            if measured_inchikey_split[1]==sim_rpsbml_inchikey_split[1]:
+                                match_score += 0.2
+                                if measured_inchikey_split[2]==sim_rpsbml_inchikey_split[2]:
+                                    match_score += 0.2
+                    if match_score>0.0:
+                        species_match['products']['species'][measured_product.species][sim_rpsbml_product.species] = match_score
+            print('\t'+str(species_match))
+            #calculate mean of the scores
+
+            #measured_reactions_match[measured_reaction.getId()][[sim_rpsbml_reaction.getId()] = species_match
+        '''
+
+
 #TODO: add the MNXR to the validation table and compare (with low score) to see
 # if you can recover from associated reaction rule MNXR
 # contained within the measured pathway and vise versa
@@ -40,11 +319,6 @@ def compareRPpathways(rpsbml, measured_sbml):
             for spe_name in rp_rp[rp_step_id]['products']:
                 rp_rp[rp_step_id]['products'][spe_name] = rpsbml.model.getSpecies(spe_name).getAnnotation()
                 found_meas_rp[rp_step_id]['products'][spe_name] = False
-        try:
-            #IMPORTANT - must not consider the sink
-            del rp_rp['targetSink']
-        except KeyError:
-            logging.error('The generated RP pathway does not have a targetSink')
     except AttributeError:
         logging.error('TODO: debug, for some reason some are passed as None here')
         return False, found_meas_rp
@@ -96,7 +370,115 @@ def compareRPpathways(rpsbml, measured_sbml):
                 found_meas_rp[rp_step_id]['rp_step_id'] = meas_step_id
                 found_meas_rp[rp_step_id]['found'] = True
                 found_meas_rp['ec_score'] += 0.5
+
+
+
         ############## compare using the species ###################
+        #1) list through all the measured species and compare with rpsbml ones by:
+        #       -> 
+        measured_reactions_match = {}
+        for measured_reaction in measured_sbml.model.getListOfReactions(): 
+            measured_reactions_match[measured_reaction.getId()] = {}
+            for rpsbml_reaction in rpsbml.model.getListOfReactions():
+                measured_reactions_match[measured_reaction.getId()][rpsbml_reaction.getId()] = {}
+                species_match = {'reactants': {}, 'products': {}, 'score': None}
+                #reactant
+                for measured_reactant in measured_reaction.getListOfReactants():
+                    species_match['reactants'][measured_reactant.species] = {}
+                    for rpsbml_reactant in rpsbml_reaction.getListOfReactants():
+                        measured_species = measured_reaction.getSpecies(measured_product.species)
+                        rpsbml_species = rpsbml_reaction.getSpecies(rpsbml_product.species)
+                        match_score = 0.0
+                        measured_brsynth_annot = self.readBRSYNTHAnnotation(measured_species.getAnnotation())
+                        rpsbml_brsynth_annot = self.readBRSYNTHAnnotation(rpsbml_species.getAnnotation())
+                        #find according to xref
+                        if rpsbml.compareMIRIAMAnnotations(measured_species.getAnnotation(), rpsbml_species.getAnnotation()):
+                            match_score += 0.2
+                        #find according to the SMILES
+                        if measured_brsynth_annot['smiles'] and rpsbml_brsynth_annot['smiles']:
+                            if measured_brsynth_annot['smiles']==rpsbml_brsynth_annot['smiles']:
+                                match_score += 0.2
+                        #find accorsing to the inchi
+                        if measured_brsynth_annot['inchi'] and rpsbml_brsynth_annot['inchi']:
+                            if measured_brsynth_annot['inchi']==rpsbml_brsynth_annot['inchi']:
+                                match_score += 0.2
+                        #find according to the inchikey -- allow partial matches
+                        if measured_brsynth_annot['inchikey'] and rpsbml_brsynth_annot['inchikey']:
+                            measured_inchikey_split = measured_brsynth_annot['inchikey'].split('-')
+                            rpsbml_inchikey_split = rpsbml_brsynth_annot['inchikey'].split('-')
+                            if measured_inchikey_split[0]==rpsbml_inchikey_split[0]:
+                                match_score += 0.2
+                                if measured_inchikey_split[1]==rpsbml_inchikey_split[1]:
+                                    match_score += 0.2
+                                    if measured_inchikey_split[2]==rpsbml_inchikey_split[2]:
+                                        match_score += 0.2
+                        if match_score>0.0:
+                            species_match['reactants'][measured_reactant.species][rpsbml_reactant.species] = match_score
+                #product
+                for measured_product in measured_reaction.getListOfProducts():
+                    species_match['products'][measured_product.species] = {}
+                    for rpsbml_product in rpsbml_reaction.getListOfProducts():
+                        measured_species = measured_reaction.getSpecies(measured_product.species)
+                        rpsbml_species = rpsbml_reaction.getSpecies(rpsbml_product.species)
+                        match_score = 0.0
+                        measured_brsynth_annot = self.readBRSYNTHAnnotation(measured_species.getAnnotation())
+                        rpsbml_brsynth_annot = self.readBRSYNTHAnnotation(rpsbml_species.getAnnotation())
+                        #find according to xref
+                        if rpsbml.compareMIRIAMAnnotations(measured_species.getAnnotation(), rpsbml_species.getAnnotation()):
+                            match_score += 0.2
+                        #find according to the SMILES
+                        if measured_brsynth_annot['smiles'] and rpsbml_brsynth_annot['smiles']:
+                            if measured_brsynth_annot['smiles']==rpsbml_brsynth_annot['smiles']:
+                                match_score += 0.2
+                        #find accorsing to the inchi
+                        if measured_brsynth_annot['inchi'] and rpsbml_brsynth_annot['inchi']:
+                            if measured_brsynth_annot['inchi']==rpsbml_brsynth_annot['inchi']:
+                                match_score += 0.2
+                        #find according to the inchikey -- allow partial matches
+                        if measured_brsynth_annot['inchikey'] and rpsbml_brsynth_annot['inchikey']:
+                            measured_inchikey_split = measured_brsynth_annot['inchikey'].split('-')
+                            rpsbml_inchikey_split = rpsbml_brsynth_annot['inchikey'].split('-')
+                            if measured_inchikey_split[0]==rpsbml_inchikey_split[0]:
+                                match_score += 0.2
+                                if measured_inchikey_split[1]==rpsbml_inchikey_split[1]:
+                                    match_score += 0.2
+                                    if measured_inchikey_split[2]==rpsbml_inchikey_split[2]:
+                                        match_score += 0.2
+                        if match_score>0.0:
+                            species_match['products'][measured_product.species][rpsbml_product.species] = match_score
+                #calculate mean of the scores
+
+                #measured_reactions_match[measured_reaction.getId()][[rpsbml_reaction.getId()] = species_match
+
+
+
+                #for measured_products in measured_reaction.getListOfProducts():
+                #    for rpsbml_products in rpsbml_reaction.getListOfProducts():
+                        
+
+
+
+        measured_reaction_ids = [i.getId() for i in measured_sbml.model.getListOfReactions()] 
+        rpsbml_reaction_ids = [i.getId() for i in rpsbml.model.getListOfReactions()] 
+        for measured_reaction in measured_sbml.model.getListOfReactions(): 
+            measured_reaction_speciesID = [] 
+            for reactant in measured_reaction.getListOfReactants(): 
+                measured_reaction_speciesID.append(reactant.species) 
+            measured_reaction_productsID = [] 
+            for product in measured_reaction.getListOfProducts(): 
+                measured_reaction_productsID.append(product.species) 
+            for rpsbml_reaction in rpsbml.model.getListOfReactions(): 
+                #loop through target model reactions 
+                rpsbml_reaction_speciesID = [i.species for i in rpsbml_reaction.getListOfReactants()] 
+                rpsbml_reaction_productsID = [i.species for i in rpsbml_reaction.getListOfProducts()] 
+
+                #perfect match
+                #if not set(measured_reaction_speciesID)-set(rpsbml_reaction_speciesID) and not set(measured_reaction_productsID)-set(rpsbml_reaction_productsID): 
+
+                #calculate 
+                #abs(len(set(measured_reaction_speciesID)-set(rpsbml_reaction_speciesID))-len(measured_reaction_speciesID))
+
+
         #for rp_step_id in rp_rp:
         #for rp_step_id in list(rp_rp.keys()).sort(key=lambda x: int(x[-1])):
         # We test to see if the meas reaction elements all exist in rp reaction and not the opposite
