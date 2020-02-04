@@ -1,4 +1,3 @@
-import rpSBML
 import numpy as np
 import tempfile
 import logging
@@ -41,7 +40,7 @@ def compareRPpathways(sim_rpsbml, measured_rpsbml, pathway_id='rp_pathway'):
                 #only one match
                 try:
                     if meas_species_match[measured_species.getId()][1]<match_score:
-                        meas_species_match[measured_species.getId()] = [sim_species.getId(), match_score]
+                        meas_species_match[measured_species.getId()][sim_species.getId()] = match_score
                 except IndexError:
                     meas_species_match[measured_species.getId()] = [sim_species.getId(), match_score]
     #TODO: need to deal if there are more than one match
