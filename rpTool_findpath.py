@@ -154,7 +154,7 @@ def compareEC(measured_rpsbml, sim_rpsbml, pathway_id='rp_pathway'):
 def compareRPpathways(measured_rpsbml, sim_rpsbml, scrict_length=True, pathway_id='rp_pathway'):
     if scrict_length:
         if not len(measured_rpsbml.readRPpathwayIDs(pathway_id))==len(sim_rpsbml.readRPpathwayIDs(pathway_id)):
-            return False, 0.0, 0.0, 0.0, 0.0
+            return False, 0.0, 0.0, 0.0, 0.0, {}
     species_match = compareSpecies(measured_rpsbml, sim_rpsbml)
     reactions_match = compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id)
     reactions_score = np.mean([reactions_match[i]['score'] for i in reactions_match])

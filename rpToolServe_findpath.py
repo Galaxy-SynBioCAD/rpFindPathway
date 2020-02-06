@@ -3,7 +3,7 @@ import tempfile
 import glob
 
 import rpSBML
-import rpTool
+import rpTool_findpath
 
 #######################################################################
 ##################### Detect ##########################################
@@ -22,7 +22,9 @@ def runFindPathway_hdd(measured_rpsbml_path, inputTar, pathway_id='rp_pathway'):
             fileName = sbml_path.split('/')[-1].replace('.sbml', '').replace('.rpsbml', '').replace('.xml', '')
             rpsbml = rpSBML.rpSBML(fileName)
             rpsbml.readSBML(sbml_path)
-            found, reactions_score, reactions_std, reactions_ec_score, reactions_ec_std, dict_result = rpTool.compareRPpathways(measured_rpsbml, sim_rpsbml, scrict_length=True, pathway_id='rp_pathway')
+            #compareRPpathways(measured_rpsbml, sim_rpsbml, scrict_length=True, pathway_id='rp_pathway'):
+            #True, reactions_score, reactions_std, reactions_ec_score, reactions_ec_std, {'species_match': species_match, 'reactions_match': reactions_match, 'ec_match': reactions_ec}
+            found, reactions_score, reactions_std, reactions_ec_score, reactions_ec_std, dict_result = rpTool_findpath.compareRPpathways(measured_rpsbml, rpsbml, True, pathway_id)
             if found:
                 dict_global[fileName] = {'reactions_score': reactions_score, 'reactions_std': reactions_std, 'reactions_ec_score': reactions_ec_score, 'reactions_ec_std': reactions_ec_std, 'dict_result': dict_result}
     return dict_global
