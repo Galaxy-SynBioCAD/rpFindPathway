@@ -1,4 +1,4 @@
-FROM brsynth/rpreader-standalone
+FROM brsynth/rpreader-standalone:dev
 
 RUN pip install numpy
 
