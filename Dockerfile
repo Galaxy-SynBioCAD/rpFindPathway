@@ -1,6 +1,7 @@
-FROM brsynth/rpreader-standalone:dev
+FROM brsynth/rpbase:dev
 
 RUN pip install numpy
 
-COPY rpTool_findpath.py /home/
-COPY rpToolServe_findpath.py /home/
+COPY rpTool.py /home/
+COPY rpToolServe.py /home/
+COPY tool_rpFindPathway.py /home/
