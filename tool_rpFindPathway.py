@@ -37,7 +37,7 @@ if __name__ == "__main__":
         #make the tar.xz 
         with tempfile.TemporaryDirectory() as tmpOutputFolder:
             inputTar = tmpOutputFolder+'/tmp_input.tar.xz'
-            with tarfile.open(inputTar, mode='w:xz') as tf:
+            with tarfile.open(inputTar, mode='w:gz') as tf:
                 info = tarfile.TarInfo('single.rpsbml.xml') #need to change the name since galaxy creates .dat files
                 info.size = os.path.getsize(params.input_target)
                 tf.addfile(tarinfo=info, fileobj=open(params.input_target, 'rb'))

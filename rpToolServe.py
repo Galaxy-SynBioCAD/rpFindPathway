@@ -13,7 +13,7 @@ import rpTool
 def runFindPathway_hdd(measured_rpsbml_path, inputTar, pathway_id='rp_pathway'):
     dict_global = {}
     with tempfile.TemporaryDirectory() as tmpOutputFolder:
-        tar = tarfile.open(inputTar, 'r:xz')
+        tar = tarfile.open(inputTar, 'r')
         tar.extractall(path=tmpOutputFolder)
         tar.close()
         measured_rpsbml = rpSBML.rpSBML('measured')
