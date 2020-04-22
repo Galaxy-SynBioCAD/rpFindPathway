@@ -146,7 +146,9 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
             ### calculate pathway species score
             measured_reactions_match[measured_reaction_id]['species_score'] = np.mean(reactants_score+products_score)
             measured_reactions_match[measured_reaction_id]['species_std'] = np.std(reactants_score+products_score)
-            break
+            measured_reactions_match[measured_reaction_id]['found'] = True
+            break #only if we assume that one match is all that can happen TODO: calculate all matches and take the highest scoring one
+            #continue #if you want the match to be more continuous
         ########## EC number ############
         #Warning we only match a single reaction at a time -- assume that there cannot be more than one to match at a given time
         logging.info('\t+++++ EC match +++++++')
@@ -167,7 +169,8 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
                         measured_reactions_match[measured_reaction_id]['ec_reaction'] = sim_reaction_id
                         measured_reactions_match[measured_reaction_id]['ec_score'] = 1.0
                         logging.info('\t--> EC match (perfect) between measured reaction: '+str(measured_reaction_id)+' and simulated reaction: '+str(sim_reaction_id))
-                        continue
+                        break #only if you assume that one match is all that is possible
+                        #continue if you want the match to be more continuous
                     ### partial match ####
                     measured_frac_ec = [i.split('.')[:-1] for i in measured_reaction_miriam['ec-code']]
                     measured_frac_ec = ['.'.join(i) for i in measured_frac_ec]
@@ -179,36 +182,46 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
                         measured_reactions_match[measured_reaction_id]['ec_reaction'] = sim_reaction_id
                         measured_reactions_match[measured_reaction_id]['ec_score'] = 0.5
                         logging.info('\t--> EC match (third) between measured reaction: '+str(measured_reaction_id)+' and simulated reaction: '+str(sim_reaction_id))
-                        continue
+                        break #only if you assume that one match is all that is possible
+                        #continue #if you want to have more continuous
     #### compile a reaction score based on the ec and species scores
     logging.info(measured_reactions_match)
     logging.info('-------------------------------')
     return measured_reactions_match
 
-'''
-
-    tmp_path_scores = [measured_reactions_match[i]['species_score']*0.6+measured_reactions_match[i]['ec_score']*0.4 for i in measured_reactions_match]
-    logging.info('EC matched with score: '+str(np.mean([measured_reactions_match[i]['ec_score'] for i in measured_reactions_match])))
-    logging.info('Species matched with score: '+str(np.mean([measured_reactions_match[i]['species_score'] for i in measured_reactions_match])))
-    measured_reactions_match['score'] = np.mean(tmp_path_scores)
-    measured_reactions_match['std'] = np.std(tmp_path_scores)
-    logging.info(measured_reactions_match)
-'''
 
 ## Compare a measured to sim rpSBML pathway 
 #
 # Works by trying to find a measured pathway contained within a simulated one. Does not perform perfect match! Since 
 # simulated ones contain full cofactors while the measured ones have impefect information
-#def compareRPpathways(measured_rpsbml, sim_rpsbml, strict_length=True, pathway_id='rp_pathway'):
-def compareRPpathways(measured_rpsbml, sim_rpsbml, pathway_id='rp_pathway'):
-    '''
+def compareRPpathways(measured_rpsbml, sim_rpsbml, strict_length=True, pathway_id='rp_pathway'):
+    logging.info('##################### '+str(sim_rpsbml.model.getId())+' ######################')
     if strict_length:
         if not len(measured_rpsbml.readRPpathwayIDs(pathway_id))==len(sim_rpsbml.readRPpathwayIDs(pathway_id)):
-            return False, 0.0, 0.0, {}
-    '''
+            return False, 0.0, {}
     species_match = compareSpecies(measured_rpsbml, sim_rpsbml)
     reactions_match = compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id)
-    return reactions_match
+    global_score = []
+    global_found = []
+    for measured_reaction_id in reactions_match:
+        #make sure that EC and reaction match are the same
+        if reactions_match[measured_reaction_id]['ec_reaction'] and reactions_match[measured_reaction_id]['species_reaction']:
+            assert reactions_match[measured_reaction_id]['ec_reaction']==reactions_match[measured_reaction_id]['species_reaction']
+        #assume 80% in the species and 20% for EC
+        global_score.append(np.average([reactions_match[measured_reaction_id]['species_score'], reactions_match[measured_reaction_id]['ec_score']], weights=[0.8, 0.2]))
+        global_found.append(reactions_match[measured_reaction_id]['found'])
+    glo = {}
+    glo['global_species_score'] = np.mean([reactions_match[i]['species_score'] for i in reactions_match])
+    try:
+        glo['global_species_score2'] = np.average([reactions_match[i]['species_score'] for i in reactions_match], weights=[reactions_match[i]['species_std'] for i in reactions_match])
+    except ZeroDivisionError:
+        glo['global_species_score2'] = -1.0
+    glo['global_ec_score'] = np.mean([reactions_match[i]['ec_score'] for i in reactions_match])
+    glo['reaction_match'] = reactions_match
+    if all(global_found):
+        return True, np.mean(global_score), glo
+    else:
+        return False, np.mean(global_score), glo
 
     #reactions_score = np.mean([reactions_match[i]['score'] for i in reactions_match])
     #reactions_std = np.std([reactions_match[i]['score'] for i in reactions_match])

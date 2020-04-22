@@ -22,8 +22,8 @@ def runFindPathway_hdd(measured_rpsbml_path, inputTar, script_length=True, pathw
             fileName = sbml_path.split('/')[-1].replace('.sbml', '').replace('.rpsbml', '').replace('.xml', '')
             rpsbml = rpSBML.rpSBML(fileName)
             rpsbml.readSBML(sbml_path)
-            found, reactions_score, reactions_std, reactions_ec_score, reactions_ec_std, dict_result = rpTool.compareRPpathways(measured_rpsbml, rpsbml, True, pathway_id)
+            found, score, dict_result = rpTool.compareRPpathways(measured_rpsbml, rpsbml, True, pathway_id)
             if found:
-                dict_global[fileName] = {'reactions_score': reactions_score, 'reactions_std': reactions_std, 'reactions_ec_score': reactions_ec_score, 'reactions_ec_std': reactions_ec_std, 'dict_result': dict_result}
+                dict_global[fileName] = {'score': score, 'dict_result': dict_result}
             #dict_global[fileName] = {'reactions_score': reactions_score, 'reactions_std': reactions_std, 'reactions_ec_score': reactions_ec_score, 'reactions_ec_std': reactions_ec_std, 'dict_result': dict_result}
     return dict_global
