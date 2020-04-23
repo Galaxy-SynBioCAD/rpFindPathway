@@ -114,14 +114,6 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
     ############## compare the reactions #######################
     #construct sim reactions with species
     logging.info('------ Comparing reactions --------')
-    sim_reactions = {}
-    for sim_reaction_id in sim_rpsbml.readRPpathwayIDs(pathway_id):
-        sim_reaction = sim_rpsbml.model.getReaction(sim_reaction_id)
-        sim_reactions[sim_reaction_id] = {'reactants': [], 'products': []}
-        for sim_reactant in sim_reaction.getListOfReactants():
-            sim_reactions[sim_reaction_id]['reactants'].append(sim_reactant.species)
-        for sim_product in sim_reaction.getListOfProducts():
-            sim_reactions[sim_reaction_id]['products'].append(sim_product.species)
     #match the reactants and products conversion to sim species
     measured_reactions_match = {}
     for measured_reaction_id in measured_rpsbml.readRPpathwayIDs(pathway_id):
