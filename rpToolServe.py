@@ -13,11 +13,11 @@ logging.basicConfig(
 )
 
 logging.disable(logging.INFO)
-logging.disable(logging.WARNING)
+#logging.disable(logging.WARNING)
 
 
 
-def runFindPathway_hdd(measured_rpsbml_path, inputTar, strict_length=True, pathway_id='rp_pathway'):
+def runFindPathway_hdd(measured_rpsbml_path, inputTar, strict_length=False, pathway_id='rp_pathway'):
     dict_global = {}
     with tempfile.TemporaryDirectory() as tmpOutputFolder:
         tar = tarfile.open(inputTar, 'r')
@@ -29,8 +29,8 @@ def runFindPathway_hdd(measured_rpsbml_path, inputTar, strict_length=True, pathw
             fileName = sbml_path.split('/')[-1].replace('.sbml', '').replace('.rpsbml', '').replace('.xml', '')
             rpsbml = rpSBML.rpSBML(fileName)
             rpsbml.readSBML(sbml_path)
-            found, score, dict_result = rpTool.compareRPpathways(measured_rpsbml, rpsbml, True, pathway_id)
-            if score>0.0:
-                dict_global[fileName] = {'score': score, 'dict_result': dict_result}
+            found, score, dict_result = rpTool.compareRPpathways(measured_rpsbml, rpsbml, strict_length, pathway_id)
+            #if score>0.0:
+            dict_global[fileName] = {'score': score, 'dict_result': dict_result}
             #dict_global[fileName] = {'reactions_score': reactions_score, 'reactions_std': reactions_std, 'reactions_ec_score': reactions_ec_score, 'reactions_ec_std': reactions_ec_std, 'dict_result': dict_result}
     return dict_global

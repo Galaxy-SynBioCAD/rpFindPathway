@@ -103,9 +103,8 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
 # Compare that all the measured species of a reactions are found within sim species to match with a reaction.
 # We assume that there cannot be two reactions that have the same species and reactants. This is maintained by SBML
 # Compare also by EC number, from the third ec to the full EC
-# v2 -> compare all the reactions
+# TODO: need to remove from the list reactions simulated reactions that have matched
 def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_pathway'):
-    #TODO: need to deal if there are more than one match
     ############## compare the reactions #######################
     #construct sim reactions with species
     logging.info('------ Comparing reactions --------')
@@ -114,7 +113,7 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
     for measured_reaction_id in measured_rpsbml.readRPpathwayIDs(pathway_id):
         logging.info('Species match of measured reaction: '+str(measured_reaction_id))
         measured_reaction = measured_rpsbml.model.getReaction(measured_reaction_id)
-        measured_reaction_miriam = sim_rpsbml.readMIRIAMAnnotation(measured_reaction.getAnnotation())
+        measured_reaction_miriam = measured_rpsbml.readMIRIAMAnnotation(measured_reaction.getAnnotation())
         ################ construct the dict transforming the species #######
         tmp_measured_reactions_match = {}
         for sim_reaction_id in sim_rpsbml.readRPpathwayIDs(pathway_id):
@@ -213,12 +212,15 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
         logging.info('\t'+str(tmp_measured_reactions_match))
         ordered_keys = [k for k,v in sorted(tmp_measured_reactions_match.items(), key=lambda item:item[1]['score'], reverse=True)]
         logging.info('\t'+str([{i: tmp_measured_reactions_match[i]['score']} for i in ordered_keys]))
-        '''
-        if tmp_measured_reactions_match[0]['score']==tmp_measured_reactions_match[1]['score']:
-            logging.warning('Multiple simulated reactions match with '+str(measured_reaction_id))
-            logging.warning(tmp_measured_reactions_match)
-        '''
-        assert tmp_measured_reactions_match[ordered_keys[0]]['score']!=tmp_measured_reactions_match[ordered_keys[1]]['score']
+        if len(ordered_keys)>=2:
+            if not tmp_measured_reactions_match[ordered_keys[0]]['score']==0.0 and not tmp_measured_reactions_match[ordered_keys[1]]['score']==0.0:
+                if tmp_measured_reactions_match[ordered_keys[0]]['score']==tmp_measured_reactions_match[ordered_keys[1]]['score']:
+                    logging.warning('Multiple simulated reactions match with '+str(measured_reaction_id))
+                    logging.warning([{i: tmp_measured_reactions_match[i]['score']} for i in ordered_keys])
+                    #hack - take the one that is the same step number
+                    logging.warning('HACK: taking RP'+measured_reaction_id[-1:])
+                    measured_reactions_match[measured_reaction_id] = tmp_measured_reactions_match['RP'+measured_reaction_id[-1:]] 
+                    continue
         measured_reactions_match[measured_reaction_id] = tmp_measured_reactions_match[ordered_keys[0]]
     #### compile a reaction score based on the ec and species scores
     logging.info(measured_reactions_match)
