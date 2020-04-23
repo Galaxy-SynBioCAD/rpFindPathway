@@ -20,6 +20,7 @@ Required information:
 
 ## Dependencies
 
+* Rank Based Overlap - [RBO](https://github.com/changyaochen/rbo)
 * Base Docker Image: [brsynth/rpreader](https://hub.docker.com/r/brsynth/rpreader)
 
 ## Installing
