@@ -215,10 +215,10 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
         if len(ordered_keys)>=2:
             if not tmp_measured_reactions_match[ordered_keys[0]]['score']==0.0 and not tmp_measured_reactions_match[ordered_keys[1]]['score']==0.0:
                 if tmp_measured_reactions_match[ordered_keys[0]]['score']==tmp_measured_reactions_match[ordered_keys[1]]['score']:
-                    logging.warning('Multiple simulated reactions match with '+str(measured_reaction_id))
-                    logging.warning([{i: tmp_measured_reactions_match[i]['score']} for i in ordered_keys])
+                    logging.warning('Multiple simulated reactions have the same score match with '+str(measured_reaction_id))
+                    logging.warning([{i: tmp_measured_reactions_match[i]['score']} for i in ordered_keys if tmp_measured_reactions_match[i]['score']>0.0])
                     #hack - take the one that is the same step number
-                    logging.warning('HACK: taking RP'+measured_reaction_id[-1:])
+                    logging.info('HACK: taking RP'+measured_reaction_id[-1:])
                     measured_reactions_match[measured_reaction_id] = tmp_measured_reactions_match['RP'+measured_reaction_id[-1:]] 
                     continue
         measured_reactions_match[measured_reaction_id] = tmp_measured_reactions_match[ordered_keys[0]]
