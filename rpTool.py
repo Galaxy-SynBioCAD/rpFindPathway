@@ -203,12 +203,13 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
     unique = findUniqueRowColumn(pd.DataFrame(meas_sim_mat))
     logging.info('findUniqueRowColumn:')
     logging.info(unique)
-    for meas in unique:
-        if len(unique[meas])>1:
-            logging.warning('Multiple values may match, choosing the first arbitrarily')
-        species_match[meas]['id'] = unique[meas][0]
-        species_match[meas]['score'] = round(meas_sim[meas][unique[meas][0]]['score'], 5)
-        species_match[meas]['found'] = meas_sim[meas][unique[meas][0]]['found']
+    for meas in meas_sim:
+        if meas in unique:
+            if len(unique[meas])>1:
+                logging.warning('Multiple values may match, choosing the first arbitrarily')
+            species_match[meas]['id'] = unique[meas][0]
+            species_match[meas]['score'] = round(meas_sim[meas][unique[meas][0]]['score'], 5)
+            species_match[meas]['found'] = meas_sim[meas][unique[meas][0]]['found']
     logging.info('#########################')
     logging.info('species_match:')
     logging.info(species_match)
@@ -355,13 +356,14 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
     logging.info('findUniqueRowColumn')
     logging.info(unique)
     reaction_match = {} 
-    for meas in unique:
+    for meas in meas_sim:
         reaction_match[meas] = {'id': None, 'score': 0.0, 'found': False}
-        if len(unique[meas])>1:
-            logging.warning('Multiple values may match, choosing the first arbitrarily')
-        reaction_match[meas]['id'] = unique[meas][0]
-        reaction_match[meas]['score'] = round(tmp_reaction_match[meas][unique[meas][0]]['score'], 5)
-        reaction_match[meas]['found'] = tmp_reaction_match[meas][unique[meas][0]]['found']
+        if meas in unique:
+            if len(unique[meas])>1:
+                logging.warning('Multiple values may match, choosing the first arbitrarily')
+            reaction_match[meas]['id'] = unique[meas][0]
+            reaction_match[meas]['score'] = round(tmp_reaction_match[meas][unique[meas][0]]['score'], 5)
+            reaction_match[meas]['found'] = tmp_reaction_match[meas][unique[meas][0]]['found']
     #### compile a reaction score based on the ec and species scores
     logging.info(tmp_reaction_match)
     logging.info(reaction_match)
