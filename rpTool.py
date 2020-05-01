@@ -45,7 +45,8 @@ def jaccardMIRIAM(meas_miriam, sim_miriam):
 
 ## Match all the measured chemical species to the simulated chemical species between two SBML 
 #
-# WARNING: Here we assume that two species cannot have multiple matches -- TODO: change to allow multiple matches and return the best scoring one 
+# TODO: for all the measured species compare with the simualted one. Then find the measured and simulated species that match the best and exclude the 
+# simulated species from potentially matching with another
 #
 def compareSpecies(measured_rpsbml, sim_rpsbml):
     ############## compare species ###################
@@ -55,6 +56,7 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
         logging.info('--- Trying to match chemical species: '+str(measured_species.getId())+' ---')
         meas_species_match[measured_species.getId()] = {}
         species_match[measured_species.getId()] = {'id': None, 'score': 0.0, 'found': False}
+        #TODO: need to exclude from the match if a simulated chemical species is already matched with a higher score to another measured species
         for sim_species in sim_rpsbml.model.getListOfSpecies():
             meas_species_match[measured_species.getId()][sim_species.getId()] = {'score': 0.0, 'found': False}
             measured_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(measured_species.getAnnotation())
@@ -185,6 +187,7 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
                     #perfect match - one can have multiple ec score per reaction
                     logging.info('\tMeasured EC: '+str(measured_ec))
                     logging.info('\tSimulated EC: '+str(sim_ec))
+                    #change the EC match to compare each layer
                     if any(i in measured_ec for i in sim_ec) and tmp_measured_reactions_match[sim_reaction_id]['ec_score']<1.0:
                         tmp_measured_reactions_match[sim_reaction_id]['found'] = True
                         tmp_measured_reactions_match[sim_reaction_id]['ec_reaction'] = sim_reaction_id
@@ -193,6 +196,7 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
                         #break #only if you assume that one match is all that is possible
                         #continue if you want the match to be more continuous
                     ### partial match ####
+                    #use this and ignore any "-"
                     measured_frac_ec = [i.split('.')[:-1] for i in measured_reaction_miriam['ec-code']]
                     measured_frac_ec = ['.'.join(i) for i in measured_frac_ec]
                     sim_frac_ec = [i.split('.')[:-1] for i in sim_reaction_miriam['ec-code']]
@@ -208,6 +212,7 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
             #WRNING: Here 80% for species match and 20% for ec match
             tmp_measured_reactions_match[sim_reaction_id]['score'] = np.average([tmp_measured_reactions_match[sim_reaction_id]['species_score'], tmp_measured_reactions_match[sim_reaction_id]['ec_score']], weights=[0.8, 0.2])
         #Select the best scoring pathway among all -- if not WARNING (and consider choosing the pathway that is numbered)
+        #TODO: check that the measured pathway is in retro
         logging.info('\ttmp_measured_reactions_match: ')
         logging.info('\t'+str(tmp_measured_reactions_match))
         ordered_keys = [k for k,v in sorted(tmp_measured_reactions_match.items(), key=lambda item:item[1]['score'], reverse=True)]
