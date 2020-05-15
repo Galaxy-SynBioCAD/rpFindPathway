@@ -57,12 +57,17 @@ def findUniqueRowColumn(pd_matrix):
     #first round involves finding the highest values and if found set to 0.0 the rows and columns (if unique)
     top = np.where(x==np.max(x))
     #as long as its unique keep looping
+    if np.count_nonzero(x)==0:
+        return to_ret
     while len(top[0])==1 and len(top[1])==1: 
+        if np.count_nonzero(x)==0:
+            return to_ret
         pd_entry = pd_matrix.iloc[[top[0][0]],[top[1][0]]]
         row_name = str(pd_entry.index[0])
         col_name = str(pd_entry.columns[0])
         if col_name in to_ret:
             logging.error('Overwriting (1): '+str(col_name))
+            logging.error(x)
         to_ret[col_name] = [row_name]
         #delete the rows and the columns 
         logging.info('==================')
@@ -84,8 +89,12 @@ def findUniqueRowColumn(pd_matrix):
         return to_ret
     reloop = True
     while reloop:
+        if np.count_nonzero(x)==0:
+            return to_ret
         reloop = False
         for col in range(len(x[0])):
+            if np.count_nonzero(x[:,col])==0:
+                continue
             top_row = np.where(x[:,col]==np.max(x[:,col]))[0]
             if len(top_row)==1:
                 top_row = top_row[0]
@@ -96,9 +105,10 @@ def findUniqueRowColumn(pd_matrix):
                 #remove current score consideration
                 row.pop(col)
                 if max(row)>=x[top_row, col]:
-                    logging.warning('For col '+str(col)+' there are either better or equal values: '+str(row))
-                    logging.warning(x)
+                    logging.info('For col '+str(col)+' there are either better or equal values: '+str(row))
+                    logging.info(x)
                     continue
+                #if you perform any changes on the rows and columns, then you can perform the loop again
                 reloop = True
                 pd_entry = pd_matrix.iloc[[top_row],[col]]
                 logging.info('==================')
@@ -108,6 +118,7 @@ def findUniqueRowColumn(pd_matrix):
                 logging.info('Row: '+str(row_name))
                 if col_name in to_ret:
                     logging.error('Overwriting (2): '+str(col_name))
+                    logging.error(pd_matrix.values)
                 to_ret[col_name] = [row_name]
                 #delete the rows and the columns 
                 pd_matrix.loc[:, col_name] = 0.0
@@ -123,12 +134,18 @@ def findUniqueRowColumn(pd_matrix):
     if np.count_nonzero(x)==0:
         return to_ret
     for col in range(len(x[0])):
-        if max(x[:,col])==0.0:
-            continue
-        else:
+        if not np.count_nonzero(x[:,col])==0:
             top_rows = np.where(x[:,col]==np.max(x[:,col]))[0]
             if len(top_rows)==1:
-                logging.warning('At this point should never have only one')
+                top_row = top_rows[0]
+                pd_entry = pd_matrix.iloc[[top_row],[col]]
+                row_name = pd_entry.index[0]
+                col_name = pd_entry.columns[0]
+                if not col_name in to_ret:
+                    to_ret[col_name] = [row_name]
+                else:
+                    logging.warning('At this point should never have only one: '+str(x[:,col]))
+                    logging.warning(x)
             else:
                 for top_row in top_rows:
                     pd_entry = pd_matrix.iloc[[top_row],[col]]
@@ -388,9 +405,13 @@ def compareRPpathways(measured_rpsbml, sim_rpsbml, strict_length=False, pathway_
         #add a penatly to the length only if the simulated pathway is longer than the measured one
         #if its smaller then we will not be able to retreive all reactions and the scor will not be good in any case
         #if meas_path_length<sim_path_length:
-        penalty_length = 1.0-np.abs(meas_path_length-sim_path_length)/meas_path_length
+        if meas_path_length>sim_path_length:
+            penalty_length = 1.0-np.abs(meas_path_length-sim_path_length)/meas_path_length
+        elif meas_path_length<=sim_path_length:
+            penalty_length = 1.0-np.abs(meas_path_length-sim_path_length)/sim_path_length
     species_match = compareSpecies(measured_rpsbml, sim_rpsbml)
     reaction_match, all_rection_match_info = compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id)
+    logging.info(penalty_length)
     logging.info([reaction_match[i]['score'] for i in reaction_match])
     logging.info([reaction_match[i]['found'] for i in reaction_match])
     global_score = np.mean([reaction_match[i]['score'] for i in reaction_match]) 
@@ -398,4 +419,4 @@ def compareRPpathways(measured_rpsbml, sim_rpsbml, strict_length=False, pathway_
     if all(global_found):
         return True, np.mean(global_score)*penalty_length, all_rection_match_info
     else:
-        return False, np.mean(global_score)*penalty_length, all_rection_match_info
+       return False, np.mean(global_score)*penalty_length, all_rection_match_info
