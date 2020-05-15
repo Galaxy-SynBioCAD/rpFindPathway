@@ -222,9 +222,7 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
     logging.info(unique)
     for meas in meas_sim:
         if meas in unique:
-            if len(unique[meas])>1:
-                logging.warning('Multiple values may match, choosing the first arbitrarily')
-            species_match[meas]['id'] = unique[meas][0]
+            species_match[meas]['id'] = unique[meas]
             species_match[meas]['score'] = round(meas_sim[meas][unique[meas][0]]['score'], 5)
             species_match[meas]['found'] = meas_sim[meas][unique[meas][0]]['found']
     logging.info('#########################')
@@ -276,33 +274,62 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
             sim_reactants_id = [reactant.species for reactant in sim_reaction.getListOfReactants()]
             sim_products_id = [product.species for product in sim_reaction.getListOfProducts()]
             ############ species ############
+            logging.info('\tspecies_match: '+str(species_match))
             logging.info('\tspecies_match: '+str(species_match.keys()))
             logging.info('\tsim_reactants_id: '+str(sim_reactants_id))
             logging.info('\tmeasured_reactants_id: '+str([i.species for i in measured_reaction.getListOfReactants()]))
             logging.info('\tsim_products_id: '+str(sim_products_id))
             logging.info('\tmeasured_products_id: '+str([i.species for i in measured_reaction.getListOfProducts()]))
-            for reactant in measured_reaction.getListOfReactants():
-                if reactant.species in species_match:
-                    if species_match[reactant.species]['id'] in sim_reactants_id:
-                        tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = species_match[reactant.species]
-                        logging.info('\t\tMatched measured reactant species: '+str(reactant.species)+' with simulated species: '+str(species_match[reactant.species]['id']))
-                    else:
+            #ensure that the match is 1:1
+            #1)Here we assume that a reaction cannot have twice the same species
+            cannotBeSpecies = []
+            #if there is a match then we loop again since removing it from the list of potential matches would be appropriate
+            keep_going = True
+            while keep_going:
+                logging.info('\t\t----------------------------')
+                keep_going = False
+                for reactant in measured_reaction.getListOfReactants():
+                    logging.info('\t\tReactant: '+str(reactant.species))
+                    #if a species match has been found AND if such a match has been found
+                    founReaIDs = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['id'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'] if not tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['id']==None]
+                    logging.info('\t\tfounReaIDs: '+str(founReaIDs))
+                    if reactant.species in species_match and not species_match[reactant.species]['id']==None and not reactant.species in founReaIDs:
+                        #return all the similat entries
+                        speMatch = list(set(species_match[reactant.species]['id'])&set(sim_reactants_id))
+                        speMatch = list(set(speMatch)-set(cannotBeSpecies))
+                        logging.info('\t\tspeMatch: '+str(speMatch))
+                        if len(speMatch)==1:
+                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': speMatch[0], 'score': species_match[reactant.species]['score'], 'found': True}
+                            cannotBeSpecies.append(speMatch[0])
+                            keep_going = True
+                            logging.info('\t\tMatched measured reactant species: '+str(reactant.species)+' with simulated species: '+str(speMatch[0])) 
+                        elif not reactant.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']:
+                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': None, 'score': 0.0, 'found': False}
+                            #logging.info('\t\tCould not find the folowing measured reactant in the currrent reaction: '+str(reactant.species))
+                    elif not reactant.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']:
                         tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': None, 'score': 0.0, 'found': False}
-                        logging.info('\t\tCould not find the folowing measured reactant in the currrent reaction: '+str(reactant.species))
-                else:
-                    tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': None, 'score': 0.0, 'found': False}
-                    logging.info('\t\tCould not find the following measured reactant in the matched species: '+str(reactant.species))
-            for product in measured_reaction.getListOfProducts():
-                if product.species in species_match:
-                    if species_match[product.species]['id'] in sim_products_id:
-                        tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = species_match[product.species]
-                        logging.info('\t\tMatched measured product species: '+str(product.species)+' with simulated species: '+str(species_match[product.species]['id']))
-                    else:
+                        #logging.info('\t\tCould not find the following measured reactant in the matched species: '+str(reactant.species))
+                for product in measured_reaction.getListOfProducts():
+                    logging.info('\t\tProduct: '+str(product.species))
+                    foundProIDs = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['id'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'] if not tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['id']==None]
+                    logging.info('\t\tfoundProIDs: '+str(foundProIDs))
+                    if product.species in species_match and not species_match[product.species]['id']==None and not product.species in foundProIDs:
+                        #return all the similat entries
+                        speMatch = list(set(species_match[product.species]['id'])&set(sim_products_id))
+                        speMatch = list(set(speMatch)-set(cannotBeSpecies))
+                        logging.info('\t\tspeMatch: '+str(speMatch))
+                        if len(speMatch)==1:
+                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': speMatch[0], 'score': species_match[product.species]['score'], 'found': True}
+                            cannotBeSpecies.append(speMatch[0])
+                            keep_going = True
+                            logging.info('\t\tMatched measured product species: '+str(product.species)+' with simulated species: '+str(speMatch[0]))    
+                        elif not product.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']:
+                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': None, 'score': 0.0, 'found': False}
+                            #logging.info('\t\tCould not find the following measured product in the matched species: '+str(product.species))
+                    elif not product.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']:
                         tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': None, 'score': 0.0, 'found': False}
-                        logging.info('\t\tCould not find the folowing measured product in the currrent reaction: '+str(product.species))
-                else:
-                    tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': None, 'score': 0.0, 'found': False}
-                    logging.info('\t\tCould not find the following measured product in the matched species: '+str(product.species))
+                        #logging.info('\t\tCould not find the following measured product in the matched species: '+str(product.species))
+                logging.info('\t\tcannotBeSpecies: '+str(cannotBeSpecies))
             reactants_score = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['score'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']]
             reactants_found = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['found'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']]
             tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants_score'] = np.mean(reactants_score)
@@ -376,9 +403,9 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
     for meas in meas_sim:
         reaction_match[meas] = {'id': None, 'score': 0.0, 'found': False}
         if meas in unique:
-            if len(unique[meas])>1:
-                logging.warning('Multiple values may match, choosing the first arbitrarily')
-            reaction_match[meas]['id'] = unique[meas][0]
+            #if len(unique[meas])>1:
+            #    logging.warning('Multiple values may match, choosing the first arbitrarily')
+            reaction_match[meas]['id'] = unique[meas]
             reaction_match[meas]['score'] = round(tmp_reaction_match[meas][unique[meas][0]]['score'], 5)
             reaction_match[meas]['found'] = tmp_reaction_match[meas][unique[meas][0]]['found']
     #### compile a reaction score based on the ec and species scores
