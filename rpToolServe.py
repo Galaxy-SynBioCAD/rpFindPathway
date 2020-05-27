@@ -19,8 +19,8 @@ my_logger.setLevel(logging.DEBUG)
 
 '''
 
-#logging.disable(logging.INFO)
-#logging.disable(logging.WARNING)
+logging.disable(logging.INFO)
+logging.disable(logging.WARNING)
 
 
 
