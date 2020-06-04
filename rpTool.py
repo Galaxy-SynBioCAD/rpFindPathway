@@ -231,6 +231,8 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
     logging.info('-----------------------')
     return species_match
 
+    
+
 
 ##
 # Compare that all the measured species of a reactions are found within sim species to match with a reaction.
