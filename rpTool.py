@@ -233,6 +233,20 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
 
     
 
+def compareReactionsMatrix(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_pathway'):
+    '''
+    use species_match to find the conversions of species
+    generate matrix where:
+             
+            +---------------
+            |
+            |
+            |
+            |
+    '''
+    pass
+
+
 
 ##
 # Compare that all the measured species of a reactions are found within sim species to match with a reaction.
