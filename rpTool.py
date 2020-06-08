@@ -233,18 +233,28 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
 
     
 
-def compareReactionsMatrix(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_pathway'):
-    '''
-    use species_match to find the conversions of species
-    generate matrix where:
-             
-            +---------------
-            |
-            |
-            |
-            |
-    '''
-    pass
+
+
+##
+#
+# Note: remember that we are trying to find the measured species equivalent
+#
+def compareOrderedReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_pathway'):
+    measured_rpgraph = rpGraph.rpGraph(measured_rpsbml, pathway_id)
+    sim_rpgraph = rpGraph.rpGraph(sim_rpsbml, pathway_id)
+    measured_ordered_reac = measured_rpgraph.orderedRetroReaction()
+    sim_ordered_reac = sim_rpgraph.orderedRetroReaction()
+    if len(measured_ordered_reac)>len(sim_ordered_reac):
+        for i in range(len(sim_ordered_reac)):
+            #based on the species match, replace measured species name nodes with the simulated one and then compare
+            #from the species_match, return the score
+            #then take the sum of the species match
+            #take the EC match score
+    elif len(sim_ordered_reac)>len(measured_ordered_reac):
+        for i in range(len(sim_ordered_reac)):
+    elif len(measured_ordered_reac)==len(sim_rpgraph):
+        for i in range(len(sim_rpgraph)):
+
 
 
 
@@ -452,6 +462,7 @@ def compareRPpathways(measured_rpsbml, sim_rpsbml, strict_length=False, pathway_
             penalty_length = 1.0-np.abs(meas_path_length-sim_path_length)/meas_path_length
         elif meas_path_length<=sim_path_length:
             penalty_length = 1.0-np.abs(meas_path_length-sim_path_length)/sim_path_length
+    #try to find all the measured species in the sim
     species_match = compareSpecies(measured_rpsbml, sim_rpsbml)
     reaction_match, all_rection_match_info = compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id)
     logging.info(penalty_length)
@@ -463,3 +474,6 @@ def compareRPpathways(measured_rpsbml, sim_rpsbml, strict_length=False, pathway_
         return True, np.mean(global_score)*penalty_length, all_rection_match_info
     else:
        return False, np.mean(global_score)*penalty_length, all_rection_match_info
+
+
+
