@@ -3,6 +3,7 @@ import tempfile
 import logging
 import pandas as pd
 from sklearn.metrics import jaccard_score
+import rpGraph
 
 #To undo the logging info
 #logging.disable(logging.NOTSET)
@@ -158,12 +159,14 @@ def findUniqueRowColumn(pd_matrix):
     logging.info('###################')
     return to_ret
 
+############ GRAPH WAY (ORDERED) ##########
+
 ## Match all the measured chemical species to the simulated chemical species between two SBML 
 #
 # TODO: for all the measured species compare with the simualted one. Then find the measured and simulated species that match the best and exclude the 
 # simulated species from potentially matching with another
 #
-def compareSpecies(measured_rpsbml, sim_rpsbml):
+def compareSpecies_graph(measured_rpsbml, sim_rpsbml):
     ############## compare species ###################
     meas_sim = {}
     sim_meas = {}
@@ -171,7 +174,8 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
     for measured_species in measured_rpsbml.model.getListOfSpecies():
         logging.info('--- Trying to match chemical species: '+str(measured_species.getId())+' ---')
         meas_sim[measured_species.getId()] = {}
-        species_match[measured_species.getId()] = {'id': None, 'score': 0.0, 'found': False}
+        species_match[measured_species.getId()] = {}
+        #species_match[measured_species.getId()] = {'id': None, 'score': 0.0, 'found': False}
         #TODO: need to exclude from the match if a simulated chemical species is already matched with a higher score to another measured species
         for sim_species in sim_rpsbml.model.getListOfSpecies():
             meas_sim[measured_species.getId()][sim_species.getId()] = {'score': 0.0, 'found': False}
@@ -182,17 +186,12 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
             sim_rpsbml_brsynth_annot = sim_rpsbml.readBRSYNTHAnnotation(sim_species.getAnnotation())
             measured_miriam_annot = sim_rpsbml.readMIRIAMAnnotation(measured_species.getAnnotation())
             sim_miriam_annot = sim_rpsbml.readMIRIAMAnnotation(sim_species.getAnnotation())
-            #find according to xref
-            #logging.info('=====================================')
-            #logging.info('Measured MIRIAM: '+str(sim_rpsbml.readMIRIAMAnnotation(measured_species.getAnnotation())))
-            #logging.info('Simulated MIRIAM: '+str(sim_rpsbml.readMIRIAMAnnotation(sim_species.getAnnotation())))
             #### MIRIAM ####
             if sim_rpsbml.compareMIRIAMAnnotations(measured_species.getAnnotation(), sim_species.getAnnotation()):
                 logging.info('--> Matched MIRIAM: '+str(sim_species.getId()))
                 #meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.4
                 meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2+0.2*jaccardMIRIAM(sim_miriam_annot, measured_miriam_annot)
                 meas_sim[measured_species.getId()][sim_species.getId()]['found'] = True
-            #logging.info('=====================================')
             ##### InChIKey ##########
             #find according to the inchikey -- allow partial matches
             if 'inchikey' in measured_brsynth_annot and 'inchikey' in sim_rpsbml_brsynth_annot:
@@ -222,258 +221,148 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
     logging.info(unique)
     for meas in meas_sim:
         if meas in unique:
-            species_match[meas]['id'] = unique[meas]
-            species_match[meas]['score'] = round(meas_sim[meas][unique[meas][0]]['score'], 5)
-            species_match[meas]['found'] = meas_sim[meas][unique[meas][0]]['found']
+            species_match[meas] = {}
+            for unique_spe in unique[meas]:
+                species_match[meas][unique_spe] = round(meas_sim[meas][unique[meas][0]]['score'], 5)
+        else:
+            logging.warning('Cannot find a species match for the measured species: '+str(meas))
     logging.info('#########################')
     logging.info('species_match:')
     logging.info(species_match)
     logging.info('-----------------------')
     return species_match
 
-    
+
+## Compare individual reactions and see if the measured pathway is contained within the simulated one
+#
+# Note that we assure that the match is 1:1 between species using the species match
+#
+def compareReaction_graph(species_match, meas_reac, sim_reac):
+    scores = []
+    all_match = True
+    ########### reactants #######
+    ignore_reactants = []
+    for meas_reactant in meas_reac.getListOfReactants():
+        if meas_reactant.species in species_match:
+            spe_found = False
+            for sim_reactant in sim_reac.getListOfReactants():
+                if sim_reactant.species in species_match[meas_reactant.species] and not sim_reactant.species in ignore_reactants:
+                    scores.append(species_match[meas_reactant.species][sim_reactant.species])
+                    ignore_reactants.append(sim_reactant.species)
+                    spe_found = True
+                    break
+            if not spe_found:
+                scores.append(0.0)
+                all_match = False
+        else:
+            logging.warning('Cannot find the measured species '+str(meas_reactant.species)+' in the the matched species: '+str(species_match))
+            scores.append(0.0)
+            all_match = False
+    #products
+    ignore_products = []
+    for meas_product in meas_reac.getListOfProducts():
+        if meas_product.species in species_match:
+            pro_found = False
+            for sim_product in sim_reac.getListOfProducts():
+                if sim_product.species in species_match[meas_product.species] and not sim_product.species in ignore_products:
+                    scores.append(species_match[meas_product.species][sim_product.species])
+                    ignore_products.append(sim_product.species)
+                    pro_found = True
+                    break
+            if not pro_found:
+                scores.append(0.0)
+                all_match = False
+        else:
+            logging.warning('Cannot find the measured species '+str(meas_product.species)+' in the the matched species: '+str(species_match))
+            scores.append(0.0)
+            all_match = False
+    return np.mean(scores), all_match
 
 
+
+########## EC number ############
+def compareEC(meas_reac_miriam, sim_reac_miriam):
+    #Warning we only match a single reaction at a time -- assume that there cannot be more than one to match at a given time
+    if 'ec-code' in meas_reac_miriam and 'ec-code' in sim_reac_miriam:
+        measured_frac_ec = [[y for y in ec.split('.') if not y=='-'] for ec in meas_reac_miriam['ec-code']]
+        sim_frac_ec = [[y for y in ec.split('.') if not y=='-'] for ec in sim_reac_miriam['ec-code']]
+        #complete the ec numbers with None to be length of 4
+        for i in range(len(measured_frac_ec)):
+            for y in range(len(measured_frac_ec[i]), 4):
+                measured_frac_ec[i].append(None)
+        for i in range(len(sim_frac_ec)):
+            for y in range(len(sim_frac_ec[i]), 4):
+                sim_frac_ec[i].append(None)
+        logging.info('Measured: ')
+        logging.info(measured_frac_ec)
+        logging.info('Simulated: ')
+        logging.info(sim_frac_ec)
+        best_ec_compare = {'meas_ec': [], 'sim_ec': [], 'score': 0.0, 'found': False}
+        for ec_m in measured_frac_ec:
+            for ec_s in sim_frac_ec:
+                tmp_score = 0.0
+                for i in range(4):
+                    if not ec_m[i]==None and not ec_s[i]==None:
+                        if ec_m[i]==ec_s[i]:
+                            tmp_score += 0.25
+                            if i==2:
+                                best_ec_compare['found'] = True
+                        else:
+                            break
+                if tmp_score>best_ec_compare['score']:
+                    best_ec_compare['meas_ec'] = ec_m
+                    best_ec_compare['sim_ec'] = ec_s
+                    best_ec_compare['score'] = tmp_score
+        return best_ec_compare['score']
+    else:
+        logging.warning('One of the two reactions does not have any EC entries.\nMeasured: '+str(meas_reac_miriam)+' \nSimulated: '+str(sim_reac_miriam))
+        return 0.0
 
 ##
 #
 # Note: remember that we are trying to find the measured species equivalent
 #
-def compareOrderedReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_pathway'):
-    measured_rpgraph = rpGraph.rpGraph(measured_rpsbml, pathway_id)
-    sim_rpgraph = rpGraph.rpGraph(sim_rpsbml, pathway_id)
-    measured_ordered_reac = measured_rpgraph.orderedRetroReaction()
-    sim_ordered_reac = sim_rpgraph.orderedRetroReaction()
+def compareOrderedReactions(measured_rpsbml,
+                            sim_rpsbml,
+                            pathway_id='rp_pathway',
+                            species_group_id='central_species'):
+    measured_rpgraph = rpGraph.rpGraph(measured_rpsbml, pathway_id, species_group_id)
+    sim_rpgraph = rpGraph.rpGraph(sim_rpsbml, pathway_id, species_group_id)
+    measured_ordered_reac = measured_rpgraph.orderedRetroReactions()
+    sim_ordered_reac = sim_rpgraph.orderedRetroReactions()
+    species_match = compareSpecies_graph(measured_rpsbml, sim_rpsbml)
+    scores = []
     if len(measured_ordered_reac)>len(sim_ordered_reac):
         for i in range(len(sim_ordered_reac)):
-            #based on the species match, replace measured species name nodes with the simulated one and then compare
-            #from the species_match, return the score
-            #then take the sum of the species match
-            #take the EC match score
-    elif len(sim_ordered_reac)>len(measured_ordered_reac):
+            spe_score, is_full_match = compareReaction_graph(species_match, 
+                                                             measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
+                                                             sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
+            ec_score = compareEC(measured_rpsbml.readMIRIAMAnnotation(measured_rpsbml.model.getReaction(measured_ordered_reac[i]).getAnnotation()),
+                                 sim_rpsbml.readMIRIAMAnnotation(sim_rpsbml.model.getReaction(sim_ordered_reac[i]).getAnnotation()))
+            scores.append(np.average([spe_score, ec_score], weights=[0.8, 0.2]))
+        return np.mean(scores)*( 1.0-np.abs(len(measured_ordered_reac)-len(sim_ordered_reac))/len(measured_ordered_reac) ), False
+    elif len(measured_ordered_reac)<len(sim_ordered_reac):
         for i in range(len(sim_ordered_reac)):
-    elif len(measured_ordered_reac)==len(sim_rpgraph):
-        for i in range(len(sim_rpgraph)):
-
-
-
-
-##
-# Compare that all the measured species of a reactions are found within sim species to match with a reaction.
-# We assume that there cannot be two reactions that have the same species and reactants. This is maintained by SBML
-# Compare also by EC number, from the third ec to the full EC
-# TODO: need to remove from the list reactions simulated reactions that have matched
-def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_pathway'):
-    ############## compare the reactions #######################
-    #construct sim reactions with species
-    logging.info('------ Comparing reactions --------')
-    #match the reactants and products conversion to sim species
-    tmp_reaction_match = {}
-    meas_sim = {}
-    sim_meas = {}
-    for measured_reaction_id in measured_rpsbml.readRPpathwayIDs(pathway_id):
-        logging.info('Species match of measured reaction: '+str(measured_reaction_id))
-        measured_reaction = measured_rpsbml.model.getReaction(measured_reaction_id)
-        measured_reaction_miriam = measured_rpsbml.readMIRIAMAnnotation(measured_reaction.getAnnotation())
-        ################ construct the dict transforming the species #######
-        meas_sim[measured_reaction_id] = {}
-        tmp_reaction_match[measured_reaction_id] = {}
-        for sim_reaction_id in sim_rpsbml.readRPpathwayIDs(pathway_id):
-            if not sim_reaction_id in sim_meas:
-                sim_meas[sim_reaction_id] = {}
-            sim_meas[sim_reaction_id][measured_reaction_id] = {}
-            meas_sim[measured_reaction_id][sim_reaction_id] = {}
-            logging.info('\t=========== '+str(sim_reaction_id)+' ==========')
-            logging.info('\t+++++++ Species match +++++++')
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id] = {'reactants': {},
-                                                                         'reactants_score': 0.0,
-                                                                         'products': {},
-                                                                         'products_score': 0.0,
-                                                                         'species_score': 0.0,
-                                                                         'species_std': 0.0,
-                                                                         'species_reaction': None,
-                                                                         'ec_score': 0.0,
-                                                                         'ec_reaction': None,
-                                                                         'score': 0.0,
-                                                                         'found': False}
-            sim_reaction = sim_rpsbml.model.getReaction(sim_reaction_id)
-            sim_reactants_id = [reactant.species for reactant in sim_reaction.getListOfReactants()]
-            sim_products_id = [product.species for product in sim_reaction.getListOfProducts()]
-            ############ species ############
-            logging.info('\tspecies_match: '+str(species_match))
-            logging.info('\tspecies_match: '+str(species_match.keys()))
-            logging.info('\tsim_reactants_id: '+str(sim_reactants_id))
-            logging.info('\tmeasured_reactants_id: '+str([i.species for i in measured_reaction.getListOfReactants()]))
-            logging.info('\tsim_products_id: '+str(sim_products_id))
-            logging.info('\tmeasured_products_id: '+str([i.species for i in measured_reaction.getListOfProducts()]))
-            #ensure that the match is 1:1
-            #1)Here we assume that a reaction cannot have twice the same species
-            cannotBeSpecies = []
-            #if there is a match then we loop again since removing it from the list of potential matches would be appropriate
-            keep_going = True
-            while keep_going:
-                logging.info('\t\t----------------------------')
-                keep_going = False
-                for reactant in measured_reaction.getListOfReactants():
-                    logging.info('\t\tReactant: '+str(reactant.species))
-                    #if a species match has been found AND if such a match has been found
-                    founReaIDs = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['id'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'] if not tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['id']==None]
-                    logging.info('\t\tfounReaIDs: '+str(founReaIDs))
-                    if reactant.species in species_match and not species_match[reactant.species]['id']==None and not reactant.species in founReaIDs:
-                        #return all the similat entries
-                        speMatch = list(set(species_match[reactant.species]['id'])&set(sim_reactants_id))
-                        speMatch = list(set(speMatch)-set(cannotBeSpecies))
-                        logging.info('\t\tspeMatch: '+str(speMatch))
-                        if len(speMatch)==1:
-                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': speMatch[0], 'score': species_match[reactant.species]['score'], 'found': True}
-                            cannotBeSpecies.append(speMatch[0])
-                            keep_going = True
-                            logging.info('\t\tMatched measured reactant species: '+str(reactant.species)+' with simulated species: '+str(speMatch[0])) 
-                        elif not reactant.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']:
-                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': None, 'score': 0.0, 'found': False}
-                            #logging.info('\t\tCould not find the folowing measured reactant in the currrent reaction: '+str(reactant.species))
-                    elif not reactant.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']:
-                        tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': None, 'score': 0.0, 'found': False}
-                        #logging.info('\t\tCould not find the following measured reactant in the matched species: '+str(reactant.species))
-                for product in measured_reaction.getListOfProducts():
-                    logging.info('\t\tProduct: '+str(product.species))
-                    foundProIDs = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['id'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'] if not tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['id']==None]
-                    logging.info('\t\tfoundProIDs: '+str(foundProIDs))
-                    if product.species in species_match and not species_match[product.species]['id']==None and not product.species in foundProIDs:
-                        #return all the similat entries
-                        speMatch = list(set(species_match[product.species]['id'])&set(sim_products_id))
-                        speMatch = list(set(speMatch)-set(cannotBeSpecies))
-                        logging.info('\t\tspeMatch: '+str(speMatch))
-                        if len(speMatch)==1:
-                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': speMatch[0], 'score': species_match[product.species]['score'], 'found': True}
-                            cannotBeSpecies.append(speMatch[0])
-                            keep_going = True
-                            logging.info('\t\tMatched measured product species: '+str(product.species)+' with simulated species: '+str(speMatch[0]))    
-                        elif not product.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']:
-                            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': None, 'score': 0.0, 'found': False}
-                            #logging.info('\t\tCould not find the following measured product in the matched species: '+str(product.species))
-                    elif not product.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']:
-                        tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': None, 'score': 0.0, 'found': False}
-                        #logging.info('\t\tCould not find the following measured product in the matched species: '+str(product.species))
-                logging.info('\t\tcannotBeSpecies: '+str(cannotBeSpecies))
-            reactants_score = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['score'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']]
-            reactants_found = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['found'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']]
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants_score'] = np.mean(reactants_score)
-            products_score = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['score'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']]
-            products_found = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['found'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']]
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products_score'] = np.mean(products_score)
-            ### calculate pathway species score
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['species_score'] = np.mean(reactants_score+products_score)
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['species_std'] = np.std(reactants_score+products_score)
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['species_reaction'] = sim_reaction_id
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['found'] = all(reactants_found+products_found)
-            #tmp_reaction_match[measured_reaction_id][sim_reaction_id]['found'] = True
-            #break #only if we assume that one match is all that can happen TODO: calculate all matches and take the highest scoring one
-            #continue #if you want the match to be more continuous
-            ########## EC number ############
-            #Warning we only match a single reaction at a time -- assume that there cannot be more than one to match at a given time
-            logging.info('\t+++++ EC match +++++++')
-            if 'ec-code' in measured_reaction_miriam:
-                sim_reaction = sim_rpsbml.model.getReaction(sim_reaction_id)
-                sim_reaction_miriam = sim_rpsbml.readMIRIAMAnnotation(sim_reaction.getAnnotation())
-                if 'ec-code' in sim_reaction_miriam:
-                    #we only need one match here
-                    measured_ec = [i for i in measured_reaction_miriam['ec-code']]
-                    sim_ec = [i for i in sim_reaction_miriam['ec-code']]
-                    #perfect match - one can have multiple ec score per reaction - keep the score for the highest matching one
-                    logging.info('\t~~~~~~~~~~~~~~~~~~~~')
-                    logging.info('\tMeasured EC: '+str(measured_ec))
-                    logging.info('\tSimulated EC: '+str(sim_ec)) 
-                    measured_frac_ec = [[y for y in ec.split('.') if not y=='-'] for ec in measured_reaction_miriam['ec-code']]
-                    sim_frac_ec = [[y for y in ec.split('.') if not y=='-'] for ec in sim_reaction_miriam['ec-code']]
-                    #complete the ec numbers with None to be length of 4
-                    for i in range(len(measured_frac_ec)):
-                        for y in range(len(measured_frac_ec[i]),4):
-                            measured_frac_ec[i].append(None)
-                    for i in range(len(sim_frac_ec)):
-                        for y in range(len(sim_frac_ec[i]),4):
-                            sim_frac_ec[i].append(None)
-                    logging.info('\t'+str(measured_frac_ec))
-                    logging.info('\t'+str(sim_frac_ec))
-                    best_ec_compare = {'meas_ec': [], 'sim_ec': [], 'score': 0.0, 'found': False}
-                    for ec_m in measured_frac_ec:
-                        for ec_s in sim_frac_ec:
-                            tmp_score = 0.0
-                            for i in range(4):
-                                if not ec_m[i]==None and not ec_s[i]==None:
-                                    if ec_m[i]==ec_s[i]:
-                                        tmp_score += 0.25
-                                        if i==2:
-                                            best_ec_compare['found'] = True
-                                    else:
-                                        break
-                            if tmp_score>best_ec_compare['score']:
-                                best_ec_compare['meas_ec'] = ec_m
-                                best_ec_compare['sim_ec'] = ec_s
-                                best_ec_compare['score'] = tmp_score
-                    logging.info('\t'+str(best_ec_compare))
-                    if best_ec_compare['found']:
-                        tmp_reaction_match[measured_reaction_id][sim_reaction_id]['found'] = True
-                    tmp_reaction_match[measured_reaction_id][sim_reaction_id]['ec_reaction'] = sim_reaction_id
-                    tmp_reaction_match[measured_reaction_id][sim_reaction_id]['ec_score'] = best_ec_compare['score']
-                    logging.info('\t~~~~~~~~~~~~~~~~~~~~')
-            #WRNING: Here 80% for species match and 20% for ec match
-            tmp_reaction_match[measured_reaction_id][sim_reaction_id]['score'] = np.average([tmp_reaction_match[measured_reaction_id][sim_reaction_id]['species_score'], tmp_reaction_match[measured_reaction_id][sim_reaction_id]['ec_score']], weights=[0.8, 0.2])
-            sim_meas[sim_reaction_id][measured_reaction_id] = tmp_reaction_match[measured_reaction_id][sim_reaction_id]['score']
-            meas_sim[measured_reaction_id][sim_reaction_id] = tmp_reaction_match[measured_reaction_id][sim_reaction_id]['score']
-    ### matrix compare #####
-    unique = findUniqueRowColumn(pd.DataFrame(meas_sim))
-    logging.info('findUniqueRowColumn')
-    logging.info(unique)
-    reaction_match = {} 
-    for meas in meas_sim:
-        reaction_match[meas] = {'id': None, 'score': 0.0, 'found': False}
-        if meas in unique:
-            #if len(unique[meas])>1:
-            #    logging.warning('Multiple values may match, choosing the first arbitrarily')
-            reaction_match[meas]['id'] = unique[meas]
-            reaction_match[meas]['score'] = round(tmp_reaction_match[meas][unique[meas][0]]['score'], 5)
-            reaction_match[meas]['found'] = tmp_reaction_match[meas][unique[meas][0]]['found']
-    #### compile a reaction score based on the ec and species scores
-    logging.info(tmp_reaction_match)
-    logging.info(reaction_match)
-    logging.info('-------------------------------')
-    return reaction_match, tmp_reaction_match
-
-
-## Compare a measured to sim rpSBML pathway 
-#
-# Works by trying to find a measured pathway contained within a simulated one. Does not perform perfect match! Since 
-# simulated ones contain full cofactors while the measured ones have impefect information
-def compareRPpathways(measured_rpsbml, sim_rpsbml, strict_length=False, pathway_id='rp_pathway'):
-    logging.info('##################### '+str(sim_rpsbml.model.getId())+' ######################')
-    penalty_length = 1.0
-    if strict_length:
-        if not len(measured_rpsbml.readRPpathwayIDs(pathway_id))==len(sim_rpsbml.readRPpathwayIDs(pathway_id)):
-            return False, 0.0, {}
-    else:
-        #calculate the penatly score for the legnth of the pathways not being the same length
-        meas_path_length = len(measured_rpsbml.readRPpathwayIDs(pathway_id))
-        sim_path_length = len(sim_rpsbml.readRPpathwayIDs(pathway_id))
-        #add a penatly to the length only if the simulated pathway is longer than the measured one
-        #if its smaller then we will not be able to retreive all reactions and the scor will not be good in any case
-        #if meas_path_length<sim_path_length:
-        if meas_path_length>sim_path_length:
-            penalty_length = 1.0-np.abs(meas_path_length-sim_path_length)/meas_path_length
-        elif meas_path_length<=sim_path_length:
-            penalty_length = 1.0-np.abs(meas_path_length-sim_path_length)/sim_path_length
-    #try to find all the measured species in the sim
-    species_match = compareSpecies(measured_rpsbml, sim_rpsbml)
-    reaction_match, all_rection_match_info = compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id)
-    logging.info(penalty_length)
-    logging.info([reaction_match[i]['score'] for i in reaction_match])
-    logging.info([reaction_match[i]['found'] for i in reaction_match])
-    global_score = np.mean([reaction_match[i]['score'] for i in reaction_match]) 
-    global_found = [reaction_match[i]['found'] for i in reaction_match]
-    if all(global_found):
-        return True, np.mean(global_score)*penalty_length, all_rection_match_info
-    else:
-       return False, np.mean(global_score)*penalty_length, all_rection_match_info
-
+            spe_score, is_full_match = compareReaction_graph(species_match, 
+                                                             measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
+                                                             sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
+            ec_score = compareEC(measured_rpsbml.readMIRIAMAnnotation(measured_rpsbml.model.getReaction(measured_ordered_reac[i]).getAnnotation()),
+                                 sim_rpsbml.readMIRIAMAnnotation(sim_rpsbml.model.getReaction(sim_ordered_reac[i]).getAnnotation()))
+            scores.append(np.average([spe_score, ec_score], weights=[0.8, 0.2]))
+            all_match = is_match
+        return np.mean(scores)*( 1.0-np.abs(len(measured_ordered_reac)-len(sim_ordered_reac))/len(sim_ordered_reac) ), False
+    #if the pathways are of the same length is the only time when the match may be perfect
+    elif len(measured_ordered_reac)==len(sim_ordered_reac):
+        perfect_match = True
+        for i in range(len(sim_ordered_reac)):
+            spe_score, is_full_match = compareReaction_graph(species_match, 
+                                                             measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
+                                                             sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
+            ec_score = compareEC(measured_rpsbml.readMIRIAMAnnotation(measured_rpsbml.model.getReaction(measured_ordered_reac[i]).getAnnotation()),
+                                 sim_rpsbml.readMIRIAMAnnotation(sim_rpsbml.model.getReaction(sim_ordered_reac[i]).getAnnotation()))
+            scores.append(np.average([spe_score, ec_score], weights=[0.8, 0.2]))
+            if ec_score==0.0 and not is_full_match:
+                prefect_match = False
+        return np.mean(scores), perfect_match
 
 
