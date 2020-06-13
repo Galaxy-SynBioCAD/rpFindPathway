@@ -334,6 +334,8 @@ def compareOrderedReactions(measured_rpsbml,
     scores = []
     if len(measured_ordered_reac)>len(sim_ordered_reac):
         for i in range(len(sim_ordered_reac)):
+            logging.info('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
+            logging.info('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
             spe_score, is_full_match = compareReaction_graph(species_match, 
                                                              measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
                                                              sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
@@ -342,19 +344,22 @@ def compareOrderedReactions(measured_rpsbml,
             scores.append(np.average([spe_score, ec_score], weights=[0.8, 0.2]))
         return np.mean(scores)*( 1.0-np.abs(len(measured_ordered_reac)-len(sim_ordered_reac))/len(measured_ordered_reac) ), False
     elif len(measured_ordered_reac)<len(sim_ordered_reac):
-        for i in range(len(sim_ordered_reac)):
+        for i in range(len(measured_ordered_reac)):
+            logging.info('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
+            logging.info('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
             spe_score, is_full_match = compareReaction_graph(species_match, 
                                                              measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
                                                              sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
             ec_score = compareEC(measured_rpsbml.readMIRIAMAnnotation(measured_rpsbml.model.getReaction(measured_ordered_reac[i]).getAnnotation()),
                                  sim_rpsbml.readMIRIAMAnnotation(sim_rpsbml.model.getReaction(sim_ordered_reac[i]).getAnnotation()))
             scores.append(np.average([spe_score, ec_score], weights=[0.8, 0.2]))
-            all_match = is_match
         return np.mean(scores)*( 1.0-np.abs(len(measured_ordered_reac)-len(sim_ordered_reac))/len(sim_ordered_reac) ), False
     #if the pathways are of the same length is the only time when the match may be perfect
     elif len(measured_ordered_reac)==len(sim_ordered_reac):
         perfect_match = True
         for i in range(len(sim_ordered_reac)):
+            logging.info('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
+            logging.info('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
             spe_score, is_full_match = compareReaction_graph(species_match, 
                                                              measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
                                                              sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
