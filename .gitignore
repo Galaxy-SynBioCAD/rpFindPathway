@@ -1,0 +1,6 @@
+rpSBML.py
+test/
+.ipynb_checkpoints/
+__pycache__
+rpGraph.py
+OLD/

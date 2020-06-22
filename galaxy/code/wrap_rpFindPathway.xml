@@ -1,0 +1,82 @@
+<tool id="rpFindPathway" name="RP FindPathway" version="1.0">
+  <description>Find a pathway in a collection or a pathway</description>
+  <requirements>
+    <container type="docker">brsynth/rpfindpathway-standalone:dev</container>
+  </requirements>
+  <stdio>
+    <regex match="WARNING:" level="warning" />
+	  <regex match="ERROR:" level="error" />
+  </stdio>
+  <command detect_errors="exit_code"><![CDATA[
+		'$__tool_directory__/tool_rpFindPathway.py' inputs.json '$input_type.input' '$output' 
+  ]]></command>
+	<configfiles>
+		<inputs name="inputs" filename="inputs.json" />
+	</configfiles>
+  <inputs>
+    <conditional name="input_type">
+			<param name="input_format" type="select" label="Input format">
+				<option value="tar" selected="True">TAR</option>
+				<option value="sbml">rpSBML</option>
+			</param>
+			<when value="tar">
+				<param name="input" type="data" format="tar" label="rpSBML tar input" />
+			</when>
+			<when value="sbml">
+				<param name="input" type="data" format="sbml" label="rpSBML input" />
+			</when>
+    </conditional>
+    <param name="target_name" type="text" label="Target Molecule Name"/>
+    <param name="target_inchi" type="text" label="Target Molecule InChI"/>
+    <repeat name="reactions" title="Reactions">
+			<repeat name="ec" title="Enzyme Commission Number">
+				<param name="id" type="text" label="EC"/>
+			</repeat>
+			<repeat name="reactants" title="Reacants">
+				<param name="name" type="text" label="Species Name"/>
+				<param name="db_name" type="select" label="Database Name">
+					<option value="mnx" selected="True">MetaNetX</option>
+					<option value="bigg">BIGG</option>
+					<option value="chebi">Chebi</option>
+					<option value="kegg">KEGG</option>
+					<option value="hmdb">HMDB</option>
+					<option value="metacyc">MetaCyc</option>
+				</param>
+				<param name="id" type="text" label="Database ID"/>
+				<param name="inchi" type="text" label="InChI"/>
+			</repeat>
+			<repeat name="products" title="Products">
+				<param name="name" type="text" label="Species Name"/>
+				<param name="db_name" type="select" label="Database Name">
+					<option value="mnx" selected="True">MetaNetX</option>
+					<option value="bigg">BIGG</option>
+					<option value="chebi">Chebi</option>
+					<option value="kegg">KEGG</option>
+					<option value="hmdb">HMDB</option>
+					<option value="metacyc">MetaCyc</option>
+				</param>
+				<param name="id" type="text" label="Database ID"/>
+				<param name="inchi" type="text" label="InChI"/>
+			</repeat>
+    </repeat>
+    <conditional name="output_type">
+			<param name="output_format" type="select" label="output format">
+				<option value="csv" selected="True">CSV</option>
+				<option value="json">JSON</option>
+			</param>
+    </conditional>
+    <section name="adv" title="Advanced Options" expanded="false">
+			<param name="pathway_id" type="text" value="rp_pathway" label="Name of the heterologous pathway" />
+    </section>
+  </inputs>
+  <outputs>
+    <data name="output" format="csv" label="rpFindPathway">
+      <change_format>
+        <when input="output_type.output_format" value="json" format="json"/>
+      </change_format>
+    </data>
+  </outputs>
+  <help>
+		Takes for input a tar of rpSBML files and completes the monocomponent reactions with full ones
+  </help>
+</tool>
