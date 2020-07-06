@@ -43,6 +43,8 @@ if __name__ == "__main__":
                 info.size = os.path.getsize(params.input_target)
                 tf.addfile(tarinfo=info, fileobj=open(params.input_target, 'rb'))
             dict_result = rpToolServe.runFindPathway_hdd(params.input_rpsbml, inputTar, params.pathway_id, params.species_group_id)
+    elif params.target_format=='json':
+        #in this case you need to convert, using rpReader, the pathway to 
     else:
         logging.error('Cannot identify the input/output format: '+str(params.target_format))
         exit(1)

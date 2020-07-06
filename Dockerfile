@@ -1,7 +1,7 @@
-FROM brsynth/rpbase:dev
+FROM brsynth/rpbase
 
-RUN pip install numpy
+RUN pip install numpy pandas sklearn
 
 COPY rpTool.py /home/
 COPY rpToolServe.py /home/
-COPY tool_rpFindPathway.py /home/
+COPY galaxy/code/tool_rpFindPathway.py /home/

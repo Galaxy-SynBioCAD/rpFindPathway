@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.metrics import jaccard_score
 import rpGraph
 
-#To undo the logging info
+#To undo the logging.debug
 #logging.disable(logging.NOTSET)
 
 ## Compute the Jaccard index similarity coefficient score between two MIRIAM dicts
@@ -47,10 +47,10 @@ def jaccardMIRIAM(meas_miriam, sim_miriam):
 # pd_matrix is organised such that the rows are the simulated species and the columns are the measured ones
 #
 def findUniqueRowColumn(pd_matrix):
-    logging.info(pd_matrix)
+    logging.debug(pd_matrix)
     to_ret = {}
     ######################## filter by the global top values ################
-    logging.info('################ Filter best #############')
+    logging.debug('################ Filter best #############')
     #transform to np.array
     x = pd_matrix.values
     #resolve the rouding issues to find the max
@@ -71,19 +71,19 @@ def findUniqueRowColumn(pd_matrix):
             logging.error(x)
         to_ret[col_name] = [row_name]
         #delete the rows and the columns 
-        logging.info('==================')
-        logging.info('Column: '+str(col_name))
-        logging.info('Row: '+str(row_name))
+        logging.debug('==================')
+        logging.debug('Column: '+str(col_name))
+        logging.debug('Row: '+str(row_name))
         pd_matrix.loc[:, col_name] = 0.0
         pd_matrix.loc[row_name, :] = 0.0
         x = pd_matrix.values
         x = np.around(x, decimals=5)
         top = np.where(x==np.max(x))
-        logging.info(pd_matrix)
-        logging.info(top)
-        logging.info('==================')
+        logging.debug(pd_matrix)
+        logging.debug(top)
+        logging.debug('==================')
     #################### filter by columns (measured) top values ##############
-    logging.info('################ Filter by column best ############')
+    logging.debug('################ Filter by column best ############')
     x = pd_matrix.values
     x = np.around(x, decimals=5)
     if np.count_nonzero(x)==0:
@@ -106,17 +106,17 @@ def findUniqueRowColumn(pd_matrix):
                 #remove current score consideration
                 row.pop(col)
                 if max(row)>=x[top_row, col]:
-                    logging.info('For col '+str(col)+' there are either better or equal values: '+str(row))
-                    logging.info(x)
+                    logging.debug('For col '+str(col)+' there are either better or equal values: '+str(row))
+                    logging.debug(x)
                     continue
                 #if you perform any changes on the rows and columns, then you can perform the loop again
                 reloop = True
                 pd_entry = pd_matrix.iloc[[top_row],[col]]
-                logging.info('==================')
+                logging.debug('==================')
                 row_name = pd_entry.index[0]
                 col_name = pd_entry.columns[0]
-                logging.info('Column: '+str(col_name))
-                logging.info('Row: '+str(row_name))
+                logging.debug('Column: '+str(col_name))
+                logging.debug('Row: '+str(row_name))
                 if col_name in to_ret:
                     logging.error('Overwriting (2): '+str(col_name))
                     logging.error(pd_matrix.values)
@@ -126,10 +126,10 @@ def findUniqueRowColumn(pd_matrix):
                 pd_matrix.loc[row_name, :] = 0.0
                 x = pd_matrix.values
                 x = np.around(x, decimals=5)
-                logging.info(pd_matrix)
-                logging.info('==================')
+                logging.debug(pd_matrix)
+                logging.debug('==================')
     ################## laslty if there are multiple values that are not 0.0 then account for that ######
-    logging.info('################# get the rest ##########')
+    logging.debug('################# get the rest ##########')
     x = pd_matrix.values
     x = np.around(x, decimals=5)
     if np.count_nonzero(x)==0:
@@ -155,8 +155,8 @@ def findUniqueRowColumn(pd_matrix):
                     if not col_name in to_ret:
                         to_ret[col_name] = []
                     to_ret[col_name].append(row_name)
-    logging.info(pd_matrix)
-    logging.info('###################')
+    logging.debug(pd_matrix)
+    logging.debug('###################')
     return to_ret
 
 ############ GRAPH WAY (ORDERED) ##########
@@ -172,7 +172,7 @@ def compareSpecies_graph(measured_rpsbml, sim_rpsbml):
     sim_meas = {}
     species_match = {}
     for measured_species in measured_rpsbml.model.getListOfSpecies():
-        logging.info('--- Trying to match chemical species: '+str(measured_species.getId())+' ---')
+        logging.debug('--- Trying to match chemical species: '+str(measured_species.getId())+' ---')
         meas_sim[measured_species.getId()] = {}
         species_match[measured_species.getId()] = {}
         #species_match[measured_species.getId()] = {'id': None, 'score': 0.0, 'found': False}
@@ -188,7 +188,7 @@ def compareSpecies_graph(measured_rpsbml, sim_rpsbml):
             sim_miriam_annot = sim_rpsbml.readMIRIAMAnnotation(sim_species.getAnnotation())
             #### MIRIAM ####
             if sim_rpsbml.compareMIRIAMAnnotations(measured_species.getAnnotation(), sim_species.getAnnotation()):
-                logging.info('--> Matched MIRIAM: '+str(sim_species.getId()))
+                logging.debug('--> Matched MIRIAM: '+str(sim_species.getId()))
                 #meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.4
                 meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2+0.2*jaccardMIRIAM(sim_miriam_annot, measured_miriam_annot)
                 meas_sim[measured_species.getId()][sim_species.getId()]['found'] = True
@@ -198,14 +198,14 @@ def compareSpecies_graph(measured_rpsbml, sim_rpsbml):
                 measured_inchikey_split = measured_brsynth_annot['inchikey'].split('-')
                 sim_rpsbml_inchikey_split = sim_rpsbml_brsynth_annot['inchikey'].split('-')
                 if measured_inchikey_split[0]==sim_rpsbml_inchikey_split[0]:
-                    logging.info('Matched first layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
+                    logging.debug('Matched first layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
                     meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2
                     if measured_inchikey_split[1]==sim_rpsbml_inchikey_split[1]:
-                        logging.info('Matched second layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
+                        logging.debug('Matched second layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
                         meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2
                         meas_sim[measured_species.getId()][sim_species.getId()]['found'] = True
                         if measured_inchikey_split[2]==sim_rpsbml_inchikey_split[2]:
-                            logging.info('Matched third layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
+                            logging.debug('Matched third layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
                             meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2
                             meas_sim[measured_species.getId()][sim_species.getId()]['found'] = True
             sim_meas[sim_species.getId()][measured_species.getId()]['score'] = meas_sim[measured_species.getId()][sim_species.getId()]['score']
@@ -217,8 +217,8 @@ def compareSpecies_graph(measured_rpsbml, sim_rpsbml):
         for y in meas_sim[i]:
             meas_sim_mat[i][y] = meas_sim[i][y]['score']
     unique = findUniqueRowColumn(pd.DataFrame(meas_sim_mat))
-    logging.info('findUniqueRowColumn:')
-    logging.info(unique)
+    logging.debug('findUniqueRowColumn:')
+    logging.debug(unique)
     for meas in meas_sim:
         if meas in unique:
             species_match[meas] = {}
@@ -226,10 +226,10 @@ def compareSpecies_graph(measured_rpsbml, sim_rpsbml):
                 species_match[meas][unique_spe] = round(meas_sim[meas][unique[meas][0]]['score'], 5)
         else:
             logging.warning('Cannot find a species match for the measured species: '+str(meas))
-    logging.info('#########################')
-    logging.info('species_match:')
-    logging.info(species_match)
-    logging.info('-----------------------')
+    logging.debug('#########################')
+    logging.debug('species_match:')
+    logging.debug(species_match)
+    logging.debug('-----------------------')
     return species_match
 
 
@@ -293,10 +293,10 @@ def compareEC(meas_reac_miriam, sim_reac_miriam):
         for i in range(len(sim_frac_ec)):
             for y in range(len(sim_frac_ec[i]), 4):
                 sim_frac_ec[i].append(None)
-        logging.info('Measured: ')
-        logging.info(measured_frac_ec)
-        logging.info('Simulated: ')
-        logging.info(sim_frac_ec)
+        logging.debug('Measured: ')
+        logging.debug(measured_frac_ec)
+        logging.debug('Simulated: ')
+        logging.debug(sim_frac_ec)
         best_ec_compare = {'meas_ec': [], 'sim_ec': [], 'score': 0.0, 'found': False}
         for ec_m in measured_frac_ec:
             for ec_s in sim_frac_ec:
@@ -334,8 +334,8 @@ def compareOrderedReactions(measured_rpsbml,
     scores = []
     if len(measured_ordered_reac)>len(sim_ordered_reac):
         for i in range(len(sim_ordered_reac)):
-            logging.info('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
-            logging.info('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
+            logging.debug('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
+            logging.debug('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
             spe_score, is_full_match = compareReaction_graph(species_match, 
                                                              measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
                                                              sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
@@ -345,8 +345,8 @@ def compareOrderedReactions(measured_rpsbml,
         return np.mean(scores)*( 1.0-np.abs(len(measured_ordered_reac)-len(sim_ordered_reac))/len(measured_ordered_reac) ), False
     elif len(measured_ordered_reac)<len(sim_ordered_reac):
         for i in range(len(measured_ordered_reac)):
-            logging.info('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
-            logging.info('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
+            logging.debug('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
+            logging.debug('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
             spe_score, is_full_match = compareReaction_graph(species_match, 
                                                              measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
                                                              sim_rpsbml.model.getReaction(sim_ordered_reac[i]))
@@ -358,8 +358,8 @@ def compareOrderedReactions(measured_rpsbml,
     elif len(measured_ordered_reac)==len(sim_ordered_reac):
         perfect_match = True
         for i in range(len(sim_ordered_reac)):
-            logging.info('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
-            logging.info('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
+            logging.debug('measured_ordered_reac['+str(i)+']: '+str(measured_ordered_reac))
+            logging.debug('sim_ordered_reac['+str(i)+']: '+str(sim_ordered_reac))
             spe_score, is_full_match = compareReaction_graph(species_match, 
                                                              measured_rpsbml.model.getReaction(measured_ordered_reac[i]), 
                                                              sim_rpsbml.model.getReaction(sim_ordered_reac[i]))

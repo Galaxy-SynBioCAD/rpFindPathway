@@ -28,7 +28,7 @@ Required information:
 To build the image using the Dockerfile, use the following command:
 
 ```
-docker build -t brsynth/rpfindpathways-standalone:dev .
+docker build -t brsynth/rpfindpathway-standalone .
 ```
 
 ### Running the tests

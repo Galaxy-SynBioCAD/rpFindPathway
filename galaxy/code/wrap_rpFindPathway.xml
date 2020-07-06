@@ -1,7 +1,7 @@
 <tool id="rpFindPathway" name="RP FindPathway" version="1.0">
   <description>Find a pathway in a collection or a pathway</description>
   <requirements>
-    <container type="docker">brsynth/rpfindpathway-standalone:dev</container>
+    <container type="docker">brsynth/rpfindpathway-standalone</container>
   </requirements>
   <stdio>
     <regex match="WARNING:" level="warning" />

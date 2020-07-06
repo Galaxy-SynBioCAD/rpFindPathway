@@ -6,21 +6,23 @@ import logging
 import rpSBML
 import rpTool
 
-'''
 logging.basicConfig(
     level=logging.DEBUG,
+    level=logging.WARNING,
+    level=logging.ERROR,
     format='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
     datefmt='%d-%m-%Y %H:%M:%S',
 )
 
+'''
 logging.disable(logging.NOTSET)
 my_logger = logging.getLogger('MyLogger')
 my_logger.setLevel(logging.DEBUG)
 
-'''
 
 logging.disable(logging.INFO)
 logging.disable(logging.WARNING)
+'''
 
 
 
