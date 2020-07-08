@@ -23,7 +23,7 @@ def main(input_rpsbml,
          output,
          pathway_id):
     docker_client = docker.from_env()
-    image_str = 'brsynth/rpfindpathways-standalone:dev'
+    image_str = 'brsynth/rpfindpathways-standalone'
     try:
         image = docker_client.images.get(image_str)
     except docker.errors.ImageNotFound:
@@ -38,7 +38,7 @@ def main(input_rpsbml,
         shutil.copy(input_rpsbml, tmpOutputFolder+'/input_rpsbml.dat')
         shutil.copy(input_target, tmpOutputFolder+'/input_target.dat')
         command = ['python',
-                   '/home/tool_rpFindPathway.py',
+                   '/home/rpFindPathway.py',
                    '-input_rpsbml',
                    '/home/tmp_output/input_rpsbml.dat',
                    '-input_target',

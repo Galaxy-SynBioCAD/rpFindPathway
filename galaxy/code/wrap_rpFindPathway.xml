@@ -1,4 +1,4 @@
-<tool id="rpFindPathway" name="RP FindPathway" version="1.0">
+<tool id="rpFindPathway" name="RP FindPathway" version="0.1">
   <description>Find a pathway in a collection or a pathway</description>
   <requirements>
     <container type="docker">brsynth/rpfindpathway-standalone</container>
@@ -17,48 +17,96 @@
     <conditional name="input_type">
 			<param name="input_format" type="select" label="Input format">
 				<option value="tar" selected="True">TAR</option>
-				<option value="sbml">rpSBML</option>
+				<option value="sbml">SBML</option>
 			</param>
 			<when value="tar">
-				<param name="input" type="data" format="tar" label="rpSBML tar input" />
+				<param name="input" type="data" format="tar" label="SBML TAR input" />
 			</when>
 			<when value="sbml">
-				<param name="input" type="data" format="sbml" label="rpSBML input" />
+				<param name="input" type="data" format="sbml" label="SBML input" />
 			</when>
     </conditional>
-    <param name="target_name" type="text" label="Target Molecule Name"/>
-    <param name="target_inchi" type="text" label="Target Molecule InChI"/>
-    <repeat name="reactions" title="Reactions">
-			<repeat name="ec" title="Enzyme Commission Number">
-				<param name="id" type="text" label="EC"/>
-			</repeat>
-			<repeat name="reactants" title="Reacants">
-				<param name="name" type="text" label="Species Name"/>
-				<param name="db_name" type="select" label="Database Name">
-					<option value="mnx" selected="True">MetaNetX</option>
-					<option value="bigg">BIGG</option>
-					<option value="chebi">Chebi</option>
-					<option value="kegg">KEGG</option>
-					<option value="hmdb">HMDB</option>
-					<option value="metacyc">MetaCyc</option>
-				</param>
-				<param name="id" type="text" label="Database ID"/>
-				<param name="inchi" type="text" label="InChI"/>
-			</repeat>
-			<repeat name="products" title="Products">
-				<param name="name" type="text" label="Species Name"/>
-				<param name="db_name" type="select" label="Database Name">
-					<option value="mnx" selected="True">MetaNetX</option>
-					<option value="bigg">BIGG</option>
-					<option value="chebi">Chebi</option>
-					<option value="kegg">KEGG</option>
-					<option value="hmdb">HMDB</option>
-					<option value="metacyc">MetaCyc</option>
-				</param>
-				<param name="id" type="text" label="Database ID"/>
-				<param name="inchi" type="text" label="InChI"/>
-			</repeat>
-    </repeat>
+    <conditional name="search">
+      <param name="search_type" type="select" label="Search Type">
+        <option value="species">Species</option>
+        <option value="reaction" selected="True">Reaction</option>
+        <option value="pathway">Pathway</option>
+      </param>
+      <when value="species">
+        <param name="db_name" type="select" label="Database Name">
+          <option value="mnx" selected="True">MetaNetX</option>
+          <option value="bigg">BIGG</option>
+          <option value="chebi">Chebi</option>
+          <option value="kegg">KEGG</option>
+          <option value="hmdb">HMDB</option>
+          <option value="metacyc">MetaCyc</option>
+        </param>
+        <param name="id" type="text" label="Database ID"/>
+        <param name="inchi" type="text" label="InChI"/> 
+      </when>
+      <when value="reaction">
+        <repeat name="ec" title="Enzyme Commission Number">
+          <param name="id" type="text" label="EC"/>
+        </repeat>
+        <repeat name="reactants" title="Reactants">
+          <param name="db_name" type="select" label="Database Name">
+            <option value="mnx" selected="True">MetaNetX</option>
+            <option value="bigg">BIGG</option>
+            <option value="chebi">Chebi</option>
+            <option value="kegg">KEGG</option>
+            <option value="hmdb">HMDB</option>
+            <option value="metacyc">MetaCyc</option>
+          </param>
+          <param name="id" type="text" label="Database ID"/>
+          <param name="inchi" type="text" label="InChI"/>
+        </repeat>
+        <repeat name="products" title="Products">
+          <param name="db_name" type="select" label="Database Name">
+            <option value="mnx" selected="True">MetaNetX</option>
+            <option value="bigg">BIGG</option>
+            <option value="chebi">Chebi</option>
+            <option value="kegg">KEGG</option>
+            <option value="hmdb">HMDB</option>
+            <option value="metacyc">MetaCyc</option>
+          </param>
+          <param name="id" type="text" label="Database ID"/>
+          <param name="inchi" type="text" label="InChI"/>
+        </repeat>
+      </when>
+      <when value="pathway">
+        <repeat name="reactions" title="Reactions">
+          <repeat name="ec" title="Enzyme Commission Number">
+            <param name="id" type="text" label="EC"/>
+          </repeat>
+          <repeat name="reactants" title="Reactants">
+            <param name="name" type="text" label="Species Name"/>
+            <param name="db_name" type="select" label="Database Name">
+              <option value="mnx" selected="True">MetaNetX</option>
+              <option value="bigg">BIGG</option>
+              <option value="chebi">Chebi</option>
+              <option value="kegg">KEGG</option>
+              <option value="hmdb">HMDB</option>
+              <option value="metacyc">MetaCyc</option>
+            </param>
+            <param name="id" type="text" label="Database ID"/>
+            <param name="inchi" type="text" label="InChI"/>
+          </repeat>
+          <repeat name="products" title="Products">
+            <param name="name" type="text" label="Species Name"/>
+            <param name="db_name" type="select" label="Database Name">
+              <option value="mnx" selected="True">MetaNetX</option>
+              <option value="bigg">BIGG</option>
+              <option value="chebi">Chebi</option>
+              <option value="kegg">KEGG</option>
+              <option value="hmdb">HMDB</option>
+              <option value="metacyc">MetaCyc</option>
+            </param>
+            <param name="id" type="text" label="Database ID"/>
+            <param name="inchi" type="text" label="InChI"/>
+          </repeat>
+        </repeat>
+      </when>
+    </conditional>
     <conditional name="output_type">
 			<param name="output_format" type="select" label="output format">
 				<option value="csv" selected="True">CSV</option>
@@ -67,6 +115,7 @@
     </conditional>
     <section name="adv" title="Advanced Options" expanded="false">
 			<param name="pathway_id" type="text" value="rp_pathway" label="Name of the heterologous pathway" />
+			<param name="species_group_id" type="text" value="central_species" label="Name of the central species" />
     </section>
   </inputs>
   <outputs>
@@ -77,6 +126,6 @@
     </data>
   </outputs>
   <help>
-		Takes for input a tar of rpSBML files and completes the monocomponent reactions with full ones
+    Find a species, reaction or ordered pathway in the results of the pathway
   </help>
 </tool>

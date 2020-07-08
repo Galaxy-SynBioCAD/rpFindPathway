@@ -1,7 +1,12 @@
 FROM brsynth/rpbase
 
+RUN apt-get install --quiet --yes --no-install-recommends \
+                        libxext6  \
+        libxrender-dev \
+         && conda install -y -c rdkit rdkit
+
 RUN pip install numpy pandas sklearn
 
-COPY rpTool.py /home/
-COPY rpToolServe.py /home/
-COPY galaxy/code/tool_rpFindPathway.py /home/
+COPY rpFindPathway.py /home/
+COPY rpFindPathwayServe.py /home/
+COPY run_rpFindPathway.py /home/
