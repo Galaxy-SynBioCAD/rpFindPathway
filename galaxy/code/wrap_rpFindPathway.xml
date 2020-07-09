@@ -74,6 +74,7 @@
         </repeat>
       </when>
       <when value="pathway">
+        <param name="ordered" type="boolean" truevalue="True" falsevalue="False" checked="true" label="Match in an ordered fashion?"/>
         <repeat name="reactions" title="Reactions">
           <repeat name="ec" title="Enzyme Commission Number">
             <param name="id" type="text" label="EC"/>
@@ -110,7 +111,7 @@
     <conditional name="output_type">
 			<param name="output_format" type="select" label="output format">
 				<option value="csv" selected="True">CSV</option>
-				<option value="json">JSON</option>
+        <option value="json">JSON</option>
 			</param>
     </conditional>
     <section name="adv" title="Advanced Options" expanded="false">

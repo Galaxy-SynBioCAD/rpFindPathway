@@ -69,8 +69,8 @@ def findUniqueRowColumn(pd_matrix):
         row_name = str(pd_entry.index[0])
         col_name = str(pd_entry.columns[0])
         if col_name in to_ret:
-            logging.error('Overwriting (1): '+str(col_name))
-            logging.error(x)
+            logging.debug('Overwriting (1): '+str(col_name))
+            logging.debug(x)
         to_ret[col_name] = [row_name]
         #delete the rows and the columns 
         logging.debug('==================')
@@ -108,8 +108,8 @@ def findUniqueRowColumn(pd_matrix):
                 #remove current score consideration
                 row.pop(col)
                 if max(row)>=x[top_row, col]:
-                    logging.debug('For col '+str(col)+' there are either better or equal values: '+str(row))
-                    logging.debug(x)
+                    logging.warning('For col '+str(col)+' there are either better or equal values: '+str(row))
+                    logging.warning(x)
                     continue
                 #if you perform any changes on the rows and columns, then you can perform the loop again
                 reloop = True
@@ -120,8 +120,8 @@ def findUniqueRowColumn(pd_matrix):
                 logging.debug('Column: '+str(col_name))
                 logging.debug('Row: '+str(row_name))
                 if col_name in to_ret:
-                    logging.error('Overwriting (2): '+str(col_name))
-                    logging.error(pd_matrix.values)
+                    logging.debug('Overwriting (2): '+str(col_name))
+                    logging.debug(pd_matrix.values)
                 to_ret[col_name] = [row_name]
                 #delete the rows and the columns 
                 pd_matrix.loc[:, col_name] = 0.0
@@ -304,9 +304,10 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
                     #if a species match has been found AND if such a match has been found
                     founReaIDs = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['id'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'] if not tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['id']==None]
                     logging.debug('\t\tfounReaIDs: '+str(founReaIDs))
-                    if reactant.species in species_match and not species_match[reactant.species]['id']==None and not reactant.species in founReaIDs:
+                    if reactant.species and reactant.species in species_match and not list(species_match[reactant.species].keys())==[] and not reactant.species in founReaIDs:
                         #return all the similat entries
-                        speMatch = list(set(species_match[reactant.species]['id'])&set(sim_reactants_id))
+                        '''
+                        speMatch = list(set(species_match[reactant.species].keys())&set(sim_reactants_id))
                         speMatch = list(set(speMatch)-set(cannotBeSpecies))
                         logging.debug('\t\tspeMatch: '+str(speMatch))
                         if len(speMatch)==1:
@@ -317,14 +318,19 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
                         elif not reactant.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']:
                             tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': None, 'score': 0.0, 'found': False}
                             #logging.debug('\t\tCould not find the folowing measured reactant in the currrent reaction: '+str(reactant.species))
+                        '''
+                        best_spe = [k for k, v in sorted(species_match[reactant.species].items(), key=lambda item: item[1], reverse=True)][0]
+                        tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': best_spe, 'score': species_match[reactant.species][best_spe], 'found': True}
+                        cannotBeSpecies.append(best_spe)
                     elif not reactant.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']:
+                        logging.warning('\t\tCould not find the following measured reactant in the matched species: '+str(reactant.species))
                         tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][reactant.species] = {'id': None, 'score': 0.0, 'found': False}
-                        #logging.debug('\t\tCould not find the following measured reactant in the matched species: '+str(reactant.species))
                 for product in measured_reaction.getListOfProducts():
                     logging.debug('\t\tProduct: '+str(product.species))
                     foundProIDs = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['id'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'] if not tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][i]['id']==None]
                     logging.debug('\t\tfoundProIDs: '+str(foundProIDs))
-                    if product.species in species_match and not species_match[product.species]['id']==None and not product.species in foundProIDs:
+                    if product.species and product.species in species_match and not list(species_match[product.species].keys())==[] and not product.species in foundProIDs:
+                        '''
                         #return all the similat entries
                         speMatch = list(set(species_match[product.species]['id'])&set(sim_products_id))
                         speMatch = list(set(speMatch)-set(cannotBeSpecies))
@@ -337,9 +343,13 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
                         elif not product.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']:
                             tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': None, 'score': 0.0, 'found': False}
                             #logging.debug('\t\tCould not find the following measured product in the matched species: '+str(product.species))
+                        '''
+                        best_spe = [k for k, v in sorted(species_match[product.species].items(), key=lambda item: item[1], reverse=True)][0]
+                        tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][product.species] = {'id': best_spe, 'score': species_match[product.species][best_spe], 'found': True}
+                        cannotBeSpecies.append(best_spe)
                     elif not product.species in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products']:
+                        logging.warning('\t\tCould not find the following measured product in the matched species: '+str(product.species))
                         tmp_reaction_match[measured_reaction_id][sim_reaction_id]['products'][product.species] = {'id': None, 'score': 0.0, 'found': False}
-                        #logging.debug('\t\tCould not find the following measured product in the matched species: '+str(product.species))
                 logging.debug('\t\tcannotBeSpecies: '+str(cannotBeSpecies))
             reactants_score = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['score'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']]
             reactants_found = [tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants'][i]['found'] for i in tmp_reaction_match[measured_reaction_id][sim_reaction_id]['reactants']]
@@ -415,7 +425,7 @@ def compareReactions(measured_rpsbml, sim_rpsbml, species_match, pathway_id='rp_
         reaction_match[meas] = {'id': None, 'score': 0.0, 'found': False}
         if meas in unique:
             #if len(unique[meas])>1:
-            #    logging.warning('Multiple values may match, choosing the first arbitrarily')
+            #    logging.debug('Multiple values may match, choosing the first arbitrarily')
             reaction_match[meas]['id'] = unique[meas]
             reaction_match[meas]['score'] = round(tmp_reaction_match[meas][unique[meas][0]]['score'], 5)
             reaction_match[meas]['found'] = tmp_reaction_match[meas][unique[meas][0]]['found']
@@ -450,7 +460,7 @@ def compareReaction_graph(species_match, meas_reac, sim_reac):
                 scores.append(0.0)
                 all_match = False
         else:
-            logging.warning('Cannot find the measured species '+str(meas_reactant.species)+' in the the matched species: '+str(species_match))
+            logging.debug('Cannot find the measured species '+str(meas_reactant.species)+' in the the matched species: '+str(species_match))
             scores.append(0.0)
             all_match = False
     #products
@@ -468,7 +478,7 @@ def compareReaction_graph(species_match, meas_reac, sim_reac):
                 scores.append(0.0)
                 all_match = False
         else:
-            logging.warning('Cannot find the measured species '+str(meas_product.species)+' in the the matched species: '+str(species_match))
+            logging.debug('Cannot find the measured species '+str(meas_product.species)+' in the the matched species: '+str(species_match))
             scores.append(0.0)
             all_match = False
     return np.mean(scores), all_match
@@ -533,7 +543,7 @@ def compareOrderedPathways(measured_rpsbml,
     sim_rpgraph = rpGraph.rpGraph(sim_rpsbml, pathway_id, species_group_id)
     measured_ordered_reac = measured_rpgraph.orderedRetroReactions()
     sim_ordered_reac = sim_rpgraph.orderedRetroReactions()
-    species_match = compareSpecies_graph(measured_rpsbml, sim_rpsbml)
+    species_match = compareSpecies(measured_rpsbml, sim_rpsbml)
     scores = []
     if len(measured_ordered_reac)>len(sim_ordered_reac):
         for i in range(len(sim_ordered_reac)):

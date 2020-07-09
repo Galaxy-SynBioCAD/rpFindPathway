@@ -9,9 +9,9 @@ import rpSBML
 import rpFindPathway
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    #level=logging.DEBUG,
     #level=logging.WARNING,
-    #level=logging.ERROR,
+    level=logging.ERROR,
     format='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
     datefmt='%d-%m-%Y %H:%M:%S',
 )
@@ -63,9 +63,13 @@ def convert_depiction(idepic, itype='smiles', otype={'inchikey'}):
     elif itype == 'inchi':
         rdmol = MolFromInchi(idepic, sanitize=True)
     else:
-        raise NotImplementedError('"{}" is not a valid input type'.format(itype))
+        #raise NotImplementedError('"{}" is not a valid input type'.format(itype))
+        logging.error('"{}" is not a valid input type'.format(itype))
+        return {}
     if rdmol is None:  # Check imprt
-        raise NotImplementedError('Import error from depiction "{}" of type "{}"'.format(idepic, itype))
+        #raise NotImplementedError('Import error from depiction "{}" of type "{}"'.format(idepic, itype))
+        logging.error('Import error from depiction "{}" of type "{}"'.format(idepic, itype))
+        return {}
     # Export
     odepic = dict()
     for item in otype:
@@ -76,7 +80,9 @@ def convert_depiction(idepic, itype='smiles', otype={'inchikey'}):
         elif item == 'inchikey':
             odepic[item] = MolToInchiKey(rdmol)
         else:
-            raise NotImplementedError('"{}" is not a valid output type'.format(otype))
+            #raise NotImplementedError('"{}" is not a valid output type'.format(otype))
+            logging.error('"{}" is not a valid output type'.format(otype))
+            return {}
     return odepic
 
 
@@ -89,7 +95,7 @@ These are the functions that make the SBML files from a dict input. These could 
 
 
 '''
-    {'input_type': {'input_format': 'tar'}, 'search': {'db_name': 'chebi', 'id': '38407', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+', 'search_type': 'species'}, 'output_type': {'output_format': 'csv'}, 'adv': {'pathway_id': 'rp_pathway'}}
+example input: {'input_type': {'input_format': 'tar'}, 'search': {'db_name': 'chebi', 'id': '38407', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+', 'search_type': 'species'}, 'output_type': {'output_format': 'csv'}, 'adv': {'pathway_id': 'rp_pathway'}}
 
 '''
 def makeSpecies(dict_species,
@@ -123,7 +129,7 @@ def makeSpecies(dict_species,
 
 
 '''
-    {'input_type': {'input_format': 'tar'}, 'search': {'ec': [{'id': '1.1.1.1'}], 'reactants': [{'db_name': 'chebi', 'id': '17333', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'products': [{'db_name': 'chebi', 'id': '38407', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'search_type': 'reaction'}, 'output_type': {'output_format': 'csv'}, 'adv': {'pathway_id': 'rp_pathway'}}
+example input: {'input_type': {'input_format': 'tar'}, 'search': {'ec': [{'id': '1.1.1.1'}], 'reactants': [{'db_name': 'chebi', 'id': '17333', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'products': [{'db_name': 'chebi', 'id': '38407', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'search_type': 'reaction'}, 'output_type': {'output_format': 'csv'}, 'adv': {'pathway_id': 'rp_pathway'}}
 
 '''
 def makeReaction(dict_reaction,
@@ -158,10 +164,17 @@ def makeReaction(dict_reaction,
     example step: {'left': {'MNXM21': 1}, 'right': {'MNXM725924': 1}, 'rule_id': None, 'rule_ori_reac': None, 'rule_score': None, 'path_id': 142, 'step': 6, 'sub_step': None}
     {i['db_name']+'_'+i['id']: 1 for i in b['reactants']}
     '''
-    rpsbml.createReaction('RP1',
+    rpsbml.createReaction('matchReac_1',
                           upper_flux_bound,
                           lower_flux_bound,
-                          {'left': {i['db_name']+'_'+i['id']: 1 for i in dict_reaction['reactants']}, 'right': {i['db_name']+'_'+i['id']: 1 for i in dict_reaction['products']}},
+                          {'left': {i['db_name']+'_'+i['id']: 1 for i in dict_reaction['reactants']},
+                           'right': {i['db_name']+'_'+i['id']: 1 for i in dict_reaction['products']},
+                           'rule_id': None,
+                           'rule_ori_reac': None,
+                           'rule_score': None,
+                           'path_id': 1,
+                           'step': 1,
+                           'sub_step': None},
                           compartment_id,
                           reacXref={'ec': [i['id'] for i in dict_reaction['ec']]},
                           pathway_id=pathway_id)
@@ -169,7 +182,7 @@ def makeReaction(dict_reaction,
 
 
 '''
-    {'input_type': {'input_format': 'tar'}, 'search': {'reactions': [{'ec': [{'id': '1.1.1.1'}], 'reactants': [{'name': 'one', 'db_name': 'mnx', 'id': 'MNXM3', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'products': [{'name': 'two', 'db_name': 'mnx', 'id': 'MNXM4', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}]}, {'ec': [{'id': '2.2.2.2'}], 'reactants': [{'name': 'three', 'db_name': 'mnx', 'id': 'MNXM4', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'products': [{'name': 'four', 'db_name': 'mnx', 'id': 'MNXM5', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}]}], 'search_type': 'pathway'}, 'output_type': {'output_format': 'csv'}, 'adv': {'pathway_id': 'rp_pathway'}}
+example input: {'input_type': {'input_format': 'tar'}, 'search': {'reactions': [{'ec': [{'id': '1.1.1.1'}], 'reactants': [{'name': 'one', 'db_name': 'mnx', 'id': 'MNXM3', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'products': [{'name': 'two', 'db_name': 'mnx', 'id': 'MNXM4', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}]}, {'ec': [{'id': '2.2.2.2'}], 'reactants': [{'name': 'three', 'db_name': 'mnx', 'id': 'MNXM4', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}], 'products': [{'name': 'four', 'db_name': 'mnx', 'id': 'MNXM5', 'inchi': 'InChI=1S/C6H6O4/c7-5(8)3-1-2-4-6(9)10/h1-4H,(H,7,8)(H,9,10)/b3-1+,4-2+'}]}], 'search_type': 'pathway'}, 'output_type': {'output_format': 'csv'}, 'adv': {'pathway_id': 'rp_pathway'}}
 '''
 def makePathway(dict_pathway,
                 pathway_id='rp_pathway',
@@ -190,7 +203,9 @@ def makePathway(dict_pathway,
     rpsbml.createPathway(pathway_id)
     rpsbml.createPathway(species_group_id)
     already_added = []
-    for reaction in dict_pathway:
+    for reaction in dict_pathway['reactions']:
+        logging.debug(reaction['reactants'])
+        logging.debug(reaction['products'])
         for species in reaction['reactants']+reaction['products']:
             if not species['db_name']+'_'+species['id'] in already_added: 
                 already_added.append(species['db_name']+'_'+species['id'])
@@ -208,11 +223,18 @@ def makePathway(dict_pathway,
     {i['db_name']+'_'+i['id']: 1 for i in b['reactants']}
     '''
     rp_count = 1
-    for reaction in dict_pathway:
-        rpsbml.createReaction('RP'+str(rp_count),
+    for reaction in dict_pathway['reactions']:
+        rpsbml.createReaction('matchReac_'+str(rp_count),
                               upper_flux_bound,
                               lower_flux_bound,
-                              {'left': {i['db_name']+'_'+i['id']: 1 for i in reaction['reactants']}, 'right': {i['db_name']+'_'+i['id']: 1 for i in reaction['products']}},
+                              {'left': {i['db_name']+'_'+i['id']: 1 for i in reaction['reactants']},
+                               'right': {i['db_name']+'_'+i['id']: 1 for i in reaction['products']},
+                               'rule_id': None,
+                               'rule_ori_reac': None,
+                               'rule_score': None,
+                               'path_id': 1,
+                               'step': 1,
+                               'sub_step': None},
                               compartment_id,
                               reacXref={'ec': [i['id'] for i in reaction['ec']]},
                               pathway_id=pathway_id)
@@ -228,6 +250,10 @@ def makePathway(dict_pathway,
 ##
 #
 #
+'''
+example output --> {"rp_5_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_15_2": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_12_8": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_6_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_13_2": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_21_4": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_14_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_17_3": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_20_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_8_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_19_2": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_11_2": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_7_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_23_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_22_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_1_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_16_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_9_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_2_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_10_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_4_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_18_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}, "rp_3_1": {"chebi_15531__64__MNXC3": {"MNXM40__64__MNXC3": 0.4087}}}
+
+'''
 def findSpecies(measured_rpsbml,
                 inputTar,
                 pathway_id='rp_pathway',
@@ -242,12 +268,32 @@ def findSpecies(measured_rpsbml,
             rpsbml = rpSBML.rpSBML(fileName)
             rpsbml.readSBML(sbml_path)
             dict_global[fileName] = rpFindPathway.compareSpecies(measured_rpsbml, rpsbml)
-            logging.error('################# '+str(fileName)+' ###################')
-            logging.error(dict_global[fileName])
-            logging.error('######################################')
+            logging.debug('################# '+str(fileName)+' ###################')
+            logging.debug(dict_global[fileName])
+            logging.debug('######################################')
     return dict_global
     
 
+
+'''
+    "rp_2_7": {
+        "id": [
+            "RP1",
+            "RP2"
+        ],
+        "score": 0.65185,
+        "found": true
+    },
+    "rp_16_9": {
+        "id": [
+            "RP1",
+            "RP2",
+            "RP3"
+        ],
+        "score": 0.65185,
+        "found": tru
+...
+'''
 ##
 #
 #
@@ -265,12 +311,30 @@ def findReaction(measured_rpsbml,
             rpsbml = rpSBML.rpSBML(fileName)
             rpsbml.readSBML(sbml_path)
             species_match = rpFindPathway.compareSpecies(measured_rpsbml, rpsbml)
-            dict_global[fileName] = compareReactions(measured_rpsbml, rpsbml, species_match, pathway_id)
+            reaction_match, tmp_reaction_match = rpFindPathway.compareReactions(measured_rpsbml, rpsbml, species_match, pathway_id)
+            assert len(reaction_match)==1
+            assert 'matchReac_1' in reaction_match
+            dict_global[fileName] = reaction_match['matchReac_1']
+            logging.debug('################# '+str(fileName)+' ###################')
+            logging.debug(dict_global[fileName])
+            logging.debug('######################################')
     return dict_global
 
 
 
-
+'''
+example output:
+{
+    "rp_5_1": [
+        0.22885200000000006,
+        false
+    ],
+    "rp_15_2": [
+        0.1373112,
+        false
+    ],
+...
+'''
 ## Find the pathway that is the closest to the input pathway in an ordered fashion
 #TODO: consider having first the comparison in an ordered fashion and then in an unordered fashion
 #
@@ -288,13 +352,28 @@ def findOrderedPathway(measured_rpsbml,
             rpsbml = rpSBML.rpSBML(fileName)
             rpsbml.readSBML(sbml_path)
             species_match = rpFindPathway.compareSpecies(measured_rpsbml, rpsbml)
-            dict_global[fileName] = compareOrderedPathways(measured_rpsbml,
-                                                           sim_rpsbml,
-                                                           pathway_id,
-                                                           species_group_id)
+            dict_global[fileName] = rpFindPathway.compareOrderedPathways(measured_rpsbml,
+                                                                         rpsbml,
+                                                                         pathway_id,
+                                                                         species_group_id)
+            logging.debug('################# '+str(fileName)+' ###################')
+            logging.debug(dict_global[fileName])
+            logging.debug('######################################')
     return dict_global
 
-
+'''
+example output:
+{
+    "rp_5_1": [ 
+        0.22885333333333335,
+        true
+    ],
+    "rp_15_2": [
+        0.13731199999999996,
+        true
+    ],
+...
+'''
 ## Function to find the pathways closest to the unordered collection of reactions
 #
 #
@@ -311,7 +390,10 @@ def findReactions(measured_rpsbml,
             rpsbml = rpSBML.rpSBML(fileName)
             rpsbml.readSBML(sbml_path)
             species_match = rpFindPathway.compareSpecies(measured_rpsbml, rpsbml)
-            dict_global[fileName] = compareUnorderedpathways(measured_rpsbml,
-                                                             sim_rpsbml,
-                                                             pathway_id)
+            dict_global[fileName] = rpFindPathway.compareUnorderedpathways(measured_rpsbml,
+                                                                           rpsbml,
+                                                                           pathway_id)
+            logging.debug('################# '+str(fileName)+' ###################')
+            logging.debug(dict_global[fileName])
+            logging.debug('######################################')
     return dict_global
