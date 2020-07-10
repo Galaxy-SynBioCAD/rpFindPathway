@@ -200,9 +200,25 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
                 meas_sim[measured_species.getId()][sim_species.getId()]['found'] = True
             ##### InChIKey ##########
             #find according to the inchikey -- allow partial matches
-            if 'inchikey' in measured_brsynth_annot and 'inchikey' in sim_rpsbml_brsynth_annot:
+            #compare either inchikey in brsynth annnotation or MIRIAM annotation
+            #NOTE: here we prioritise the BRSynth annotation inchikey over the MIRIAM
+            measured_inchikey_split = None
+            sim_rpsbml_inchikey_split = None
+            if 'inchikey' in measured_brsynth_annot: 
                 measured_inchikey_split = measured_brsynth_annot['inchikey'].split('-')
+            elif 'inchikey' in measured_miriam_annot:
+                if not len(measured_miriam_annot['inchikey'])==1:
+                    #TODO: handle mutliple inchikey with mutliple compare and the highest comparison value kept
+                    logging.warning('There are multiple inchikey values, taking the first one')
+                measured_inchikey_split = measured_miriam_annot['inchikey'][0].split('-')
+            if 'inchikey' in sim_rpsbml_brsynth_annot:
                 sim_rpsbml_inchikey_split = sim_rpsbml_brsynth_annot['inchikey'].split('-')
+            elif 'inchikey' in sim_miriam_annot:
+                if not len(sim_miriam_annot['inchikey'])==1:
+                    #TODO: handle mutliple inchikey with mutliple compare and the highest comparison value kept
+                    logging.warning('There are multiple inchikey values, taking the first one')
+                sim_rpsbml_inchikey_split = sim_miriam_annot['inchikey'][0].split('-')
+            if measured_inchikey_split and sim_rpsbml_inchikey_split:
                 if measured_inchikey_split[0]==sim_rpsbml_inchikey_split[0]:
                     logging.debug('Matched first layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
                     meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2
