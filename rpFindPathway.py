@@ -172,18 +172,24 @@ def findUniqueRowColumn(pd_matrix):
 # TODO: for all the measured species compare with the simualted one. Then find the measured and simulated species that match the best and exclude the 
 # simulated species from potentially matching with another
 #
-def compareSpecies(measured_rpsbml, sim_rpsbml):
+def compareSpecies(measured_rpsbml, sim_rpsbml, measured_comp_id=None, sim_comp_id=None):
     ############## compare species ###################
     meas_sim = {}
     sim_meas = {}
     species_match = {}
     for measured_species in measured_rpsbml.model.getListOfSpecies():
+        #skip the species that are not in the right compartmennt, if specified
+        if measured_comp_id and not measured_species.getCompartment()==measured_comp_id:
+            continue
         logging.debug('--- Trying to match chemical species: '+str(measured_species.getId())+' ---')
         meas_sim[measured_species.getId()] = {}
         species_match[measured_species.getId()] = {}
         #species_match[measured_species.getId()] = {'id': None, 'score': 0.0, 'found': False}
         #TODO: need to exclude from the match if a simulated chemical species is already matched with a higher score to another measured species
         for sim_species in sim_rpsbml.model.getListOfSpecies():
+            #skip the species that are not in the right compartmennt, if specified
+            if sim_comp_id and not sim_species.getCompartment()==sim_comp_id:
+                continue
             meas_sim[measured_species.getId()][sim_species.getId()] = {'score': 0.0, 'found': False}
             if not sim_species.getId() in sim_meas:
                 sim_meas[sim_species.getId()] = {}
