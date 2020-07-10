@@ -209,25 +209,25 @@ def compareSpecies(measured_rpsbml, sim_rpsbml):
             elif 'inchikey' in measured_miriam_annot:
                 if not len(measured_miriam_annot['inchikey'])==1:
                     #TODO: handle mutliple inchikey with mutliple compare and the highest comparison value kept
-                    logging.warning('There are multiple inchikey values, taking the first one')
+                    logging.warning('There are multiple inchikey values, taking the first one: '+str(measured_miriam_annot['inchikey']))
                 measured_inchikey_split = measured_miriam_annot['inchikey'][0].split('-')
             if 'inchikey' in sim_rpsbml_brsynth_annot:
                 sim_rpsbml_inchikey_split = sim_rpsbml_brsynth_annot['inchikey'].split('-')
             elif 'inchikey' in sim_miriam_annot:
                 if not len(sim_miriam_annot['inchikey'])==1:
                     #TODO: handle mutliple inchikey with mutliple compare and the highest comparison value kept
-                    logging.warning('There are multiple inchikey values, taking the first one')
+                    logging.warning('There are multiple inchikey values, taking the first one: '+str(sim_rpsbml_brsynth_annot['inchikey']))
                 sim_rpsbml_inchikey_split = sim_miriam_annot['inchikey'][0].split('-')
             if measured_inchikey_split and sim_rpsbml_inchikey_split:
                 if measured_inchikey_split[0]==sim_rpsbml_inchikey_split[0]:
-                    logging.debug('Matched first layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
+                    logging.debug('Matched first layer InChIkey: ('+str(measured_inchikey_split)+' -- '+str(sim_rpsbml_inchikey_split)+')')
                     meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2
                     if measured_inchikey_split[1]==sim_rpsbml_inchikey_split[1]:
-                        logging.debug('Matched second layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
+                        logging.debug('Matched second layer InChIkey: ('+str(measured_inchikey_split)+' -- '+str(sim_rpsbml_inchikey_split)+')')
                         meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2
                         meas_sim[measured_species.getId()][sim_species.getId()]['found'] = True
                         if measured_inchikey_split[2]==sim_rpsbml_inchikey_split[2]:
-                            logging.debug('Matched third layer InChIkey: ('+str(measured_brsynth_annot['inchikey'])+' -- '+str(sim_rpsbml_brsynth_annot['inchikey'])+')')
+                            logging.debug('Matched third layer InChIkey: ('+str(measured_inchikey_split)+' -- '+str(sim_rpsbml_inchikey_split)+')')
                             meas_sim[measured_species.getId()][sim_species.getId()]['score'] += 0.2
                             meas_sim[measured_species.getId()][sim_species.getId()]['found'] = True
             sim_meas[sim_species.getId()][measured_species.getId()]['score'] = meas_sim[measured_species.getId()][sim_species.getId()]['score']
